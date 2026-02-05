@@ -1,0 +1,17 @@
+{
+  "name": "botmilu",
+  "version": "1.0.0",
+  "scripts": {
+    "sync": "node src/sync-products.js",
+    "cron": "node src/cron.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "supabase": "^1.131.0"
+  }
+}
