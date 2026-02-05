@@ -41,7 +41,7 @@ create index if not exists categories_slug_idx on public.categories (slug);
 
 -- Cron Schedule (Example - User must replace URL and KEY)
 -- Unscheduling if exists to avoid duplicates
-select cron.unschedule('sync-aleph-hourly');
+-- select cron.unschedule('sync-aleph-hourly');
 
 select cron.schedule(
     'sync-aleph-hourly',
