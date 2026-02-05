@@ -12,6 +12,6 @@
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
-    "supabase": "^1.131.0"
+    "supabase": "^2.0.0"
   }
 }

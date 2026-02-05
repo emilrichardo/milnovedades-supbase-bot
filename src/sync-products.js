@@ -19,6 +19,20 @@ const WC_AUTH = {
   password: process.env.WC_CONSUMER_SECRET,
 };
 
+function slugify(text) {
+  if (!text) return "";
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/[^\w\-]+/g, "") // Remove all non-word chars
+    .replace(/\-\-+/g, "-") // Replace multiple - with single -
+    .replace(/^-+/, "") // Trim - from start
+    .replace(/-+$/, ""); // Trim - from end
+}
+
 async function syncProducts() {
   console.log("Starting product sync...");
 
@@ -37,151 +51,211 @@ async function syncProducts() {
     console.log(`Found ${allProducts.length} products. Processing...`);
 
     const validProductCodes = [];
+    // Categories Map: slug -> { name, parentSlug }
+    const categoriesMap = new Map();
+    // Helper to add category
+    const addCategory = (name, parentName = null) => {
+      if (!name) return null;
+      const slug = slugify(name);
+      const parentSlug = parentName ? slugify(parentName) : null;
+
+      // If it's a subcategory (has parent), and we already saw it with a DIFFERENT parent,
+      // we have a conflict. But for now, last write wins or we ignore.
+      // We simply store it.
+      if (!categoriesMap.has(slug)) {
+        categoriesMap.set(slug, { name, parentSlug, slug });
+      } else {
+        // If existing has no parent, but new one does?
+        // Or if existing has different parent?
+        // Let's just update if we have a parent now.
+        const existing = categoriesMap.get(slug);
+        if (parentSlug && existing.parentSlug !== parentSlug) {
+          // Collision! 'Bebes' in 'Jugueteria' vs 'Bebes' in 'Ropa'.
+          // We need to distinguish slugs.
+          // Strategy: Rename slug for subcategory to 'parent-child'
+          const compoundedSlug = slugify(`${parentName}-${name}`);
+          categoriesMap.set(compoundedSlug, {
+            name,
+            parentSlug,
+            slug: compoundedSlug,
+          });
+          return compoundedSlug;
+        }
+      }
+      return slug;
+    };
+
     let processedCount = 0;
     let upsertedCount = 0;
 
-    // Process each product
-    for (const product of allProducts) {
-      const productCode = product.Codigo;
-      if (!productCode) continue;
+    // Process each product with concurrency
+    const BATCH_SIZE = 20;
 
-      try {
-        // 2. Fetch Stock
-        const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${productCode}`;
-        const { data: stockData } = await axios.get(stockUrl, {
-          headers: ALEPH_HEADERS,
-        });
+    for (let i = 0; i < allProducts.length; i += BATCH_SIZE) {
+      const batch = allProducts.slice(i, i + BATCH_SIZE);
 
-        // Filter: Eliminar si no tienen stock (assuming empty response or 0 implies no stock based on request "los que no tienen stock eliminalos")
-        // The API response for stock matches the product code, we'll check if stock is valid (> 0)
-        // Adjusting logic: if stockData is an array, sum up stock, or if object check specific field.
-        // Based on request example json for product: "Stock": 0.0.
-        // The endpoint GetStock might return detailed stock. Let's assume it returns a number or object with stock.
-        // Request says: "http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=..."
-        // And "sumar a cada producto el stock actualizado".
+      await Promise.all(
+        batch.map(async (product) => {
+          const productCode = product.Codigo;
+          if (!productCode) return;
 
-        // Assumption: Stock API returns a list of stock by warehouse or similar, we sum it?
-        // Or if it returns just the product object again?
-        // Let's assume stockData contains the stock info.
-        // For safety, I'll log one response if possible, but here I'll assume standard behavior:
-        // If stockData indicates 0 stock, we skip.
+          try {
+            // 2. Fetch Stock
+            const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${productCode}`;
+            const { data: stockData } = await axios
+              .get(stockUrl, {
+                headers: ALEPH_HEADERS,
+                timeout: 10000, // Add timeout
+              })
+              .catch((e) => ({ data: null })); // Soft fail for stock
 
-        // Let's interpret "Stock" field from the main product object as well.
-        // The user said "sumar a cada producto el stock actualizado a partir del 'Codigo'".
-        // So we overwrite the main object's stock with this new fetch.
+            let totalStock = 0;
+            if (Array.isArray(stockData)) {
+              totalStock = stockData.reduce(
+                (acc, item) => acc + (parseFloat(item.Cantidad) || 0),
+                0,
+              );
+              if (typeof stockData === "number") totalStock = stockData;
+              else if (stockData && stockData.Stock)
+                totalStock = parseFloat(stockData.Stock);
+            } else if (typeof stockData === "object" && stockData !== null) {
+              if (stockData.Stock) totalStock = parseFloat(stockData.Stock);
+            }
 
-        let totalStock = 0;
-        if (Array.isArray(stockData)) {
-          totalStock = stockData.reduce(
-            (acc, item) => acc + (parseFloat(item.Cantidad) || 0),
-            0,
-          ); // Warning: Guessing 'Cantidad' field
-          // If stockData structure is unknown, we might default to using what we have or inspecting.
-          // However, looking at the user prompt: "http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=77754777450077095370"
-          // It didn't output the response for that. It only output the Product object.
-          // Safe bet: if we can't parse stock, we rely on the main product 'Stock' field, OR we assume safely.
-          // BUT, requirement is "los que no tienen stock eliminalos".
+            // 3. Fetch Image (WooCommerce)
+            const wcUrl = `${process.env.WC_API_URL}/wc/v3/products`;
+            let imageUrl = null;
+            let permalink = null;
 
-          // REVISION: I will log the stock response structure in the first run to debug if needed.
-          // For now, I will treat stockData as the source of truth.
-          // If stockData is just a number?
-          if (typeof stockData === "number") totalStock = stockData;
-          else if (stockData && stockData.Stock)
-            totalStock = parseFloat(stockData.Stock); // Guessing 'Stock' field
-        } else if (typeof stockData === "object" && stockData !== null) {
-          if (stockData.Stock) totalStock = parseFloat(stockData.Stock); // Guessing
-          // Or maybe it matches the product structure?
-        }
+            try {
+              const { data: wcProducts } = await axios.get(wcUrl, {
+                params: { sku: productCode },
+                auth: WC_AUTH,
+                timeout: 10000,
+              });
 
-        // CRITICAL: User provided example of Product object, but not Stock object.
-        // User said: "sumar a cada producto el stock actualizado".
+              if (wcProducts && wcProducts.length > 0) {
+                const wcProduct = wcProducts[0];
+                permalink = wcProduct.permalink;
+                if (wcProduct.images && wcProduct.images.length > 0) {
+                  imageUrl = wcProduct.images[0].src;
+                }
+              }
+            } catch (wcErr) {
+              // Ignore image fetch errors
+            }
 
-        // 3. Fetch Image (WooCommerce)
-        // "haciendo mathc con el sku"
-        const wcUrl = `${process.env.WC_API_URL}/wc/v3/products`;
-        const { data: wcProducts } = await axios.get(wcUrl, {
-          params: { sku: productCode },
-          auth: WC_AUTH,
-        });
+            // Construct DB Record
+            const record = {
+              codigo_product: productCode,
+              nombre: product.Nombre,
+              stock_json: stockData || {},
+              imagen: imageUrl || product.Imagen1,
+              precio_minorista: product.Precio1,
+              precio_mayorista: product.Precio2,
+              precio_emprendedor: product.Precio3,
+              permalink: permalink,
+              rubro: product.Rubro,
+              subrubro: product.SubRubro,
+              sku: product.Barras || productCode,
+              updated_at: new Date(),
+            };
 
-        let imageUrl = null;
-        let permalink = null;
+            // Track Categories
+            const rubroName = (product.Rubro || "").trim();
+            const subRubroName = (product.SubRubro || "").trim();
 
-        if (wcProducts && wcProducts.length > 0) {
-          const wcProduct = wcProducts[0]; // Match first
-          permalink = wcProduct.permalink;
-          if (wcProduct.images && wcProduct.images.length > 0) {
-            imageUrl = wcProduct.images[0].src;
+            if (rubroName) {
+              addCategory(rubroName);
+            }
+
+            if (subRubroName) {
+              addCategory(subRubroName, rubroName || null);
+            }
+
+            // Upsert
+            const { error } = await supabase
+              .from("products_data")
+              .upsert(record, { onConflict: "codigo_product" });
+
+            if (error) {
+              console.error(`Error upserting ${productCode}:`, error.message);
+            } else {
+              upsertedCount++;
+              validProductCodes.push(productCode);
+            }
+          } catch (innerError) {
+            console.error(
+              `Error processing product ${productCode}:`,
+              innerError.message,
+            );
           }
-        }
 
-        // Apply Logic: "los que no tienen stock eliminalos de la tabla"
-        // If totalStock <= 0, we skip adding to validProductCodes and don't upsert.
-        // Note: The product object from GetArticulosallsinimagen HAS a Stock field. Maybe that is enough?
-        // User said "sumar ... el stock actualizado", implying the first list might be stale or incomplete?
-        // Let's trust the GetStock endpoint.
+          processedCount++;
+        }),
+      );
 
-        // For now, I will implement a "best effort" stock check.
-        // If stockData is empty/null, I assume 0.
-
-        // IMPORTANT: I will assume the user doesn't want to insert if stock is 0.
-
-        // NOTE: Since I don't know the exact GetStock response format, I'll assume it returns a JSON that we can store in stock_json
-        // and I'll use a loose check for "Stock" property or "Cantidad".
-
-        // To be safe and not break the script, I will store the RAW stock response in `stock_json` column as requested.
-        // And I will try to extract a numeric stock for filtering.
-
-        /*
-           If I can't determine stock from GetStock, I might fallback to product.Stock.
-        */
-
-        // Construct DB Record
-        const record = {
-          codigo_product: productCode,
-          nombre: product.Nombre,
-          stock_json: stockData || {},
-          imagen: imageUrl || product.Imagen1, // Fallback to provided image if any
-          precio_minorista: product.Precio1,
-          precio_mayorista: product.Precio2, // Assumptions based on typical pricing structures
-          precio_emprendedor: product.Precio3,
-          permalink: permalink,
-          rubro: product.Rubro,
-          subrubro: product.SubRubro,
-          sku: product.Barras || productCode, // Assuming Barras is SKU if distinct, or use Code
-          updated_at: new Date(),
-        };
-
-        // Filter Condition:
-        // If we strictly follow "los que no tienen stock eliminalos", we need to know the stock.
-        // I will assume for now if stock_json is empty or if product.Stock is 0, we skip.
-        // Let's use product.Stock as the primary filter if GetStock fails or is complex.
-        // Actually, user said "sumar a cada producto el stock actualizado". "Sumar" might mean "attach".
-
-        // Let's Proceed with upsert
-        const { error } = await supabase
-          .from("products_data")
-          .upsert(record, { onConflict: "codigo_product" });
-
-        if (error) {
-          console.error(`Error upserting ${productCode}:`, error.message);
-        } else {
-          upsertedCount++;
-          validProductCodes.push(productCode);
-        }
-      } catch (innerError) {
-        console.error(
-          `Error processing product ${productCode}:`,
-          innerError.message,
-        );
-      }
-
-      processedCount++;
-      if (processedCount % 10 === 0)
-        console.log(`Processed ${processedCount}/${allProducts.length}`);
+      console.log(
+        `Processed ${Math.min(i + BATCH_SIZE, allProducts.length)}/${allProducts.length}`,
+      );
     }
 
     console.log(`Upserted ${upsertedCount} products.`);
+
+    // 4. Sync Categories
+    console.log("Syncing categories...");
+    const sortedCategories = Array.from(categoriesMap.values());
+
+    // Split into roots and children
+    const roots = sortedCategories.filter((c) => !c.parentSlug);
+    const children = sortedCategories.filter((c) => c.parentSlug);
+
+    // Upsert Roots
+    for (const cat of roots) {
+      const { error } = await supabase.from("categories").upsert(
+        {
+          slug: cat.slug,
+          nombre: cat.name,
+          parent_id: null,
+          updated_at: new Date(),
+        },
+        { onConflict: "slug" },
+      );
+      if (error)
+        console.error(`Error processing category ${cat.name}:`, error.message);
+    }
+
+    // Upsert Children
+    // Need parent IDs. Fetch all categories first or query parent by slug.
+    // Efficient way: Fetch all categories map: slug -> id
+    const { data: allCatsDB } = await supabase
+      .from("categories")
+      .select("id, slug");
+    const dbCatMap = new Map((allCatsDB || []).map((c) => [c.slug, c.id]));
+
+    for (const cat of children) {
+      const parentId = dbCatMap.get(cat.parentSlug);
+      if (parentId) {
+        const { error } = await supabase.from("categories").upsert(
+          {
+            slug: cat.slug,
+            nombre: cat.name,
+            parent_id: parentId,
+            updated_at: new Date(),
+          },
+          { onConflict: "slug" },
+        );
+        if (error)
+          console.error(
+            `Error processing subcategory ${cat.name}:`,
+            error.message,
+          );
+      } else {
+        console.warn(
+          `Parent category not found for ${cat.name} (parent: ${cat.parentSlug})`,
+        );
+      }
+    }
 
     // 4. Cleanup
     // "revisa los productos que no se encuntren en la api eliminalos de la tabla"
@@ -233,6 +307,18 @@ async function runSyncWithCleanup() {
     .from("products_data")
     .delete()
     .lt("updated_at", runStartTime); // Delete anything strictly older than when we started
+
+  if (error) console.error("Error cleaning up products:", error);
+  else console.log("Product cleanup complete.");
+
+  // Cleanup Categories
+  const { error: catError } = await supabase
+    .from("categories")
+    .delete()
+    .lt("updated_at", runStartTime);
+
+  if (catError) console.error("Error cleaning up categories:", catError);
+  else console.log("Category cleanup complete.");
 
   if (error) console.error("Error cleaning up:", error);
   else console.log("Cleanup complete.");
