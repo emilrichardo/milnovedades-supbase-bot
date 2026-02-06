@@ -42,7 +42,7 @@ function slugify(text: string): string {
 
 // Helper: Fetch with Timeout
 async function fetchWithTimeout(resource: string, options: RequestInit = {}) {
-  const { timeout = 10000 } = options as any;
+  const { timeout = 30000 } = options as any;
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
@@ -56,14 +56,14 @@ async function fetchWithTimeout(resource: string, options: RequestInit = {}) {
   }
 }
 
-// Helper: Concurrency Map
+// Helper: Map Concurrent
 async function mapConcurrent(
   items: any[],
   concurrency: number,
-  fn: (item: any) => Promise<void>,
+  fn: (item: any) => Promise<any>,
 ) {
-  const results: Promise<void>[] = [];
-  const executing: Promise<void>[] = [];
+  const results: any[] = [];
+  const executing: Promise<any>[] = [];
   for (const item of items) {
     const p = Promise.resolve().then(() => fn(item));
     results.push(p);
@@ -80,88 +80,110 @@ async function mapConcurrent(
   return Promise.all(results);
 }
 
+// Image Cache Map: SKU -> Data
+const imageCache = new Map<string, any>();
+
+async function preloadWcImages() {
+  console.log("[Sync] Preloading WC Images...");
+  let page = 1;
+  const perPage = 100;
+  let hasMore = true;
+
+  // Fetch pages concurrently?
+  // First fetch pages count.
+  try {
+    const url = `${WC_API_URL}/wc/v3/products?per_page=${perPage}&page=1&fields=id,sku,images,permalink`;
+    const res = await fetchWithTimeout(url, {
+      headers: { Authorization: WC_AUTH_HEADER },
+    });
+    if (!res.ok) throw new Error(`WC Error: ${res.status}`);
+
+    const totalPages = parseInt(res.headers.get("x-wp-totalpages") || "1");
+    const data = await res.json();
+    processWcChunk(data);
+    console.log(`[Sync] Page 1/${totalPages} cached.`);
+
+    if (totalPages > 1) {
+      const pages = [];
+      for (let p = 2; p <= totalPages; p++) pages.push(p);
+
+      // Fetch remaining pages in parallel chunks
+      await mapConcurrent(pages, 5, async (p) => {
+        try {
+          const pUrl = `${WC_API_URL}/wc/v3/products?per_page=${perPage}&page=${p}&fields=id,sku,images,permalink`;
+          const pRes = await fetchWithTimeout(pUrl, {
+            headers: { Authorization: WC_AUTH_HEADER },
+          });
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            processWcChunk(pData);
+          }
+        } catch (e) {
+          console.error(`Error fetching WC page ${p}`, e);
+        }
+      });
+    }
+  } catch (e) {
+    console.error("Error preloading images", e);
+  }
+  console.log(`[Sync] Cached images for ${imageCache.size} products.`);
+}
+
+function processWcChunk(data: any[]) {
+  if (!Array.isArray(data)) return;
+  for (const item of data) {
+    if (item.sku) {
+      const images =
+        item.images?.map((img: any) => ({
+          id: img.id,
+          src: img.src,
+          name: img.name,
+          alt: img.alt,
+        })) || [];
+      imageCache.set(item.sku, { images, permalink: item.permalink });
+    }
+  }
+}
+
 Deno.serve(async (req) => {
+  // If we are just checking health or preventing auto-start?
+  // User wants "sincronización inicial ultra rápida" when deployed.
+  // We can let the cron trigger it, or trigger via curl.
+  // The structure below handles ALL products in ONE invocation (assuming no timeout).
+
+  if (req.method === "GET") {
+    return new Response("Sync Service Ready");
+  }
+
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Parse Offset
-    let body = {};
-    try {
-      body = await req.json();
-    } catch (e) {}
-    const offset = (body as any).offset || 0;
-    const BATCH_LIMIT = 200; // Stabilized to 200 to avoid CPU Hard Limit (400 crashed)
-    const CONCURRENCY_LIMIT = 20; // Cap concurrent requests to 20
+    // 1. Preload Images
+    await preloadWcImages();
 
-    console.log(`[Sync] Starting run. Offset: ${offset}`);
-
-    // Fetch Products (Retry Logic)
+    // 2. Fetch All Products from Aleph
+    console.log("[Sync] Fetching Aleph Products...");
     const productsUrl = `${ALEPH_API_URL}/Productos/GetArticulosallsinimagen`;
-    let prodRes;
-    let attempts = 0;
-    const MAX_RETRIES = 3;
-
-    while (attempts < MAX_RETRIES) {
-      try {
-        prodRes = await fetchWithTimeout(productsUrl, {
-          headers: ALEPH_HEADERS,
-          timeout: 60000,
-        });
-        if (prodRes.ok) break;
-        console.warn(
-          `[Sync] Attempt ${attempts + 1} failed: ${prodRes.status} ${prodRes.statusText}`,
-        );
-      } catch (e) {
-        console.warn(`[Sync] Attempt ${attempts + 1} exception:`, e);
-      }
-      attempts++;
-      if (attempts < MAX_RETRIES) await new Promise((r) => setTimeout(r, 2000));
-    }
-
-    if (!prodRes || !prodRes.ok) throw new Error(`[Sync] Aleph API Failed.`);
-
+    const prodRes = await fetchWithTimeout(productsUrl, {
+      headers: ALEPH_HEADERS,
+      timeout: 60000,
+    });
+    if (!prodRes.ok) throw new Error("Aleph API Failed");
     const allProducts = await prodRes.json();
     if (!Array.isArray(allProducts))
-      throw new Error("[Sync] Invalid format from Aleph");
+      throw new Error("Invalid format from Aleph");
 
-    const totalProducts = allProducts.length;
-    console.log(`[Sync] Total Products available: ${totalProducts}`);
+    const total = allProducts.length;
+    console.log(`[Sync] Processing ${total} products...`);
 
-    // Check if we are done
-    if (offset >= totalProducts) {
-      console.log("[Sync] All batches complete. Running final cleanup...");
-      const threshold = new Date(Date.now() - 1000 * 60 * 60).toISOString();
+    // 3. Process in chunks
+    const CHUNK_SIZE = 100; // Bulk Upsert Limit
+    // Fetch concurrency within a chunk could be high?
+    // Actually, we process chunks serially to do bulk upserts serially (safer for DB?),
+    // but inside the chunk we fetch stock in parallel.
 
-      const { error: prodDelError, count: deletedProds } = await supabase
-        .from("products_data")
-        .delete({ count: "exact" })
-        .lt("updated_at", threshold);
-
-      if (prodDelError) {
-        console.error("[Sync] Cleanup error:", prodDelError);
-      }
-      console.log(
-        `[Sync] Final Cleanup complete. Deleted ${deletedProds} stale products.`,
-      );
-      return new Response(
-        JSON.stringify({ success: true, message: "Sync Completed" }),
-        { headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    // Process Batch
-    const batch = allProducts.slice(offset, offset + BATCH_LIMIT);
-    console.log(
-      `[Sync] Processing batch ${offset} to ${offset + batch.length} of ${totalProducts}...`,
-    );
-
-    // Check if target missing product is in this batch
-    const missingTarget = batch.find((p: any) => p.Codigo === "HA0383");
-    if (missingTarget)
-      console.log(
-        `[DEBUG] Found HA0383 in batch. Raw Data:`,
-        JSON.stringify(missingTarget),
-      );
+    let processed = 0;
+    let upserted = 0;
 
     const categoriesMap = new Map();
     const addCategory = (name: string, parentName: string | null = null) => {
@@ -172,209 +194,130 @@ Deno.serve(async (req) => {
         categoriesMap.set(slug, { name, parentSlug, slug });
       return slug;
     };
-    let upsertedCount = 0;
-    await mapConcurrent(batch, CONCURRENCY_LIMIT, async (product: any) => {
-      const productCode = product.Codigo;
-      if (!productCode) return;
 
-      try {
-        // 1. Get Stock
+    for (let i = 0; i < total; i += CHUNK_SIZE) {
+      const chunk = allProducts.slice(i, i + CHUNK_SIZE);
+      const records: any[] = [];
+
+      // Fetch Stock Concurrently
+      await mapConcurrent(chunk, 50, async (product: any) => {
+        const code = product.Codigo;
+        if (!code) return;
+
+        // Stock
         let stockData: any = null;
+        let totalStock = 0;
         try {
-          const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${productCode}`;
+          const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${code}`;
           const stockRes = await fetchWithTimeout(stockUrl, {
             headers: ALEPH_HEADERS,
             timeout: 5000,
           });
           if (stockRes.ok) stockData = await stockRes.json();
+
+          if (Array.isArray(stockData)) {
+            totalStock = stockData.reduce(
+              (acc: number, item: any) =>
+                acc + (parseFloat(item.Cantidad) || 0),
+              0,
+            );
+          } else if (typeof stockData === "number") totalStock = stockData;
+          else if (stockData?.Stock) totalStock = parseFloat(stockData.Stock);
         } catch (e) {}
 
-        // 2. Calculate Total Stock (For data only, not filtering)
-        let totalStock = 0;
-        if (Array.isArray(stockData)) {
-          totalStock = stockData.reduce(
-            (acc: number, item: any) => acc + (parseFloat(item.Cantidad) || 0),
-            0,
-          );
-        } else if (typeof stockData === "number") {
-          totalStock = stockData;
-        } else if (stockData && stockData.Stock) {
-          totalStock = parseFloat(stockData.Stock);
-        }
+        // Images (From Cache)
+        const cached = imageCache.get(code) || imageCache.get(product.Barras);
+        const images = cached?.images || [];
+        const permalink = cached?.permalink || null;
 
-        // Debug
-        if (productCode === "HA0383") {
-          console.log(
-            `[DEBUG] HA0383 Stock Data:`,
-            JSON.stringify(stockData),
-            ` Calculated Total: ${totalStock}`,
-          );
-        }
+        // Categories
+        const rubroName = (product.Rubro || "").trim();
+        const subRubroName = (product.SubRubro || "").trim();
+        if (rubroName) addCategory(rubroName);
+        if (subRubroName) addCategory(subRubroName, rubroName || null);
 
-        // NO LONGER DELETING BASED ON STOCK - UPSERT EVERYTHING
-
-        // 3. Get Image (WooCommerce) - Capture ALL images
-        let images: any[] = [];
-        let imageUrl = null;
-        let permalink = null;
-        try {
-          const wcRes = await fetchWithTimeout(
-            `${WC_API_URL}/wc/v3/products?sku=${productCode}`,
-            {
-              headers: { Authorization: WC_AUTH_HEADER },
-              timeout: 5000,
-            },
-          );
-          if (wcRes.ok) {
-            const wcData = await wcRes.json();
-            if (Array.isArray(wcData) && wcData.length > 0) {
-              const match = wcData[0];
-              permalink = match.permalink;
-              if (match.images?.length > 0) imageUrl = match.images[0].src;
-
-              // Map all images
-              if (Array.isArray(match.images)) {
-                images = match.images.map((img: any) => ({
-                  id: img.id,
-                  src: img.src,
-                  name: img.name,
-                  alt: img.alt,
-                }));
-              }
-
-              if (productCode === "HA0383")
-                console.log(`[DEBUG] HA0383 Images Found: ${images.length}`);
-            }
-          }
-        } catch (e) {}
-
-        // 4. Prepare Record
-        const record = {
-          codigo_product: productCode,
+        // Record
+        records.push({
+          codigo_product: code,
           nombre: product.Nombre,
           stock_json: stockData || {},
-          imagen: imageUrl || product.Imagen1,
-          images: images, // New JSONB column
+          imagen: images.length > 0 ? images[0].src : product.Imagen1,
+          images: images,
           precio_minorista: product.Precio1,
           precio_mayorista: product.Precio2,
           precio_emprendedor: product.Precio3,
           permalink: permalink,
           rubro: product.Rubro,
           subrubro: product.SubRubro,
-          sku: product.Barras || productCode,
+          sku: product.Barras || code,
           updated_at: new Date().toISOString(),
-        };
-
-        const rubroName = (product.Rubro || "").trim();
-        const subRubroName = (product.SubRubro || "").trim();
-        if (rubroName) addCategory(rubroName);
-        if (subRubroName) addCategory(subRubroName, rubroName || null);
-
-        // 5. Upsert
-        if (productCode === "HA0383") {
-          console.log(`[DEBUG] Attempting Upsert for HA0383...`);
-        }
-
-        const { error } = await supabase
-          .from("products_data")
-          .upsert(record, { onConflict: "codigo_product" });
-
-        if (productCode === "HA0383") {
-          if (error)
-            console.error(`[DEBUG] HA0383 Upsert FAILED: ${error.message}`);
-          else console.log(`[DEBUG] HA0383 Upsert SUCCESS.`);
-        }
-
-        if (!error) upsertedCount++;
-        else
-          console.error(
-            `[Sync] Upsert Error for ${productCode}: ${error.message}`,
-          );
-      } catch (err) {
-        console.error(`[Sync] Error processing item ${productCode}:`, err);
-      }
-    });
-
-    // Upsert Categories found in this batch
-    const cats = Array.from(categoriesMap.values());
-    for (const c of cats) {
-      // Simple linear upsert for safety
-      if (!c.parentSlug) {
-        await supabase.from("categories").upsert(
-          {
-            slug: c.slug,
-            nombre: c.name,
-            parent_id: null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "slug" },
-        );
-      } else {
-        // resolving parent id is hard without checking DB.
-        // Ideally we cache this or we trust the slug relationship if we enforce strict slug consistency.
-        // For batching, let's look up parent slug in DB.
-        const { data: pData } = await supabase
-          .from("categories")
-          .select("id")
-          .eq("slug", c.parentSlug)
-          .single();
-        if (pData) {
-          await supabase.from("categories").upsert(
-            {
-              slug: c.slug,
-              nombre: c.name,
-              parent_id: pData.id,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "slug" },
-          );
-        }
-      }
-    }
-
-    console.log(`[Sync] Batch Result: ${upsertedCount} Upserted.`);
-
-    // Recursive Invocation
-    const nextOffset = offset + BATCH_LIMIT;
-    if (nextOffset < totalProducts) {
-      console.log(`[Sync] Scheduling next batch: ${nextOffset}`);
-
-      const authHeader =
-        req.headers.get("Authorization") ||
-        `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
-
-      // Use EdgeRuntime.waitUntil to prevent blocking response
-      // @ts-ignore
-      const promise = fetch(req.url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authHeader,
-        },
-        body: JSON.stringify({ offset: nextOffset }),
+        });
       });
 
-      // Check if EdgeRuntime is available
-      if (typeof EdgeRuntime !== "undefined") {
-        EdgeRuntime.waitUntil(promise);
-      } else {
-        // Local fallback: we don't await the result body, but we await the request sending?
-        // Or just let it float (might get killed)
-        promise.catch((e) => console.error("Recursive fetch failed", e));
+      // Bulk Upsert
+      if (records.length > 0) {
+        const { error } = await supabase
+          .from("products_data")
+          .upsert(records, { onConflict: "codigo_product" });
+        if (error) console.error("[Sync] Bulk Upsert Error:", error);
+        else upserted += records.length;
       }
+
+      processed += chunk.length;
+      console.log(`[Sync] Progress: ${processed}/${total}`);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        offset: nextOffset,
-        upserted: upsertedCount,
-      }),
-      { headers: { "Content-Type": "application/json" } },
-    );
-  } catch (error) {
-    console.error("[Sync] Fatal Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    // 4. Upsert Categories
+    console.log("[Sync] Upserting Categories...");
+    const cats = Array.from(categoriesMap.values());
+
+    // Roots
+    const roots = cats.filter((c) => !c.parentSlug);
+    if (roots.length > 0)
+      await supabase.from("categories").upsert(
+        roots.map((c) => ({
+          slug: c.slug,
+          nombre: c.name,
+          parent_id: null,
+          updated_at: new Date().toISOString(),
+        })),
+        { onConflict: "slug" },
+      );
+
+    // Childs
+    const childs = cats.filter((c) => c.parentSlug);
+    if (childs.length > 0) {
+      const { data: catData } = await supabase
+        .from("categories")
+        .select("id, slug");
+      const catIdMap = new Map(catData?.map((x: any) => [x.slug, x.id]));
+
+      const childRecords = childs.map((c) => ({
+        slug: c.slug,
+        nombre: c.name,
+        parent_id: catIdMap.get(c.parentSlug) || null,
+        updated_at: new Date().toISOString(),
+      }));
+      await supabase
+        .from("categories")
+        .upsert(childRecords, { onConflict: "slug" });
+    }
+
+    // 5. Cleanup
+    console.log("[Sync] Cleaning up stale products...");
+    const threshold = new Date(Date.now() - 1000 * 60 * 60).toISOString();
+    await supabase
+      .from("products_data")
+      .delete({ count: "exact" })
+      .lt("updated_at", threshold);
+
+    console.log("[Sync] Done.");
+    return new Response(JSON.stringify({ success: true, count: upserted }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("[Sync] Fatal:", e);
+    return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

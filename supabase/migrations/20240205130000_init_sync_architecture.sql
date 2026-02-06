@@ -44,15 +44,37 @@ create index if not exists categories_slug_idx on public.categories (slug);
 -- Unscheduling if exists to avoid duplicates
 -- select cron.unschedule('sync-aleph-hourly');
 
-select cron.schedule(
-    'sync-aleph-hourly',
-    '0 * * * *', -- Every hour
-    $$
-    select
-      net.http_post(
-          url:='https://YOUR_PROJECT_REF.supabase.co/functions/v1/sync-aleph',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb,
-          body:='{}'::jsonb
-      ) as request_id;
-    $$
-);
+-- Cron Schedule
+-- Dynamic URL based on environment (set via postgresql.conf or ALTER SYSTEM if needed)
+-- Default to internal docker service name 'botmilu' for production speed
+
+DO $$
+DECLARE
+  -- Check for a custom setting, or default to internal docker DNS
+  service_url text := current_setting('app.service_url', true);
+  auth_header jsonb;
+BEGIN
+  IF service_url IS NULL OR service_url = '' THEN
+      -- Fallback/Default for Docker/Coolify internal network
+      service_url := 'http://botmilu:8000';
+  END IF;
+
+  auth_header := '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb;
+
+  -- Cleanup old schedules
+  PERFORM cron.unschedule('sync-aleph-hourly');
+
+  PERFORM cron.schedule(
+    'sync-aleph-4h',
+    '0 */4 * * *', -- Every 4 hours
+    format(
+      'select net.http_post(
+          url:=''%s'',
+          headers:=''%s'',
+          body:=''{}''::jsonb
+      ) as request_id;',
+      service_url,
+      auth_header
+    )
+  );
+END $$;
