@@ -1,4 +1,3 @@
 name: BotMilu Full Stack
 build_pack: docker_compose
-# Enables Coolify to use the docker-compose.yml in the root
-# We also specify the domains if known, but environment variables handle most config.
+docker_compose_location: /docker-compose.yaml
