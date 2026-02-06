@@ -218,7 +218,7 @@ services:
   # but if user wants "Edge Runtime" support for OTHER functions:
   edge-runtime:
     container_name: supabase-edge-runtime
-    image: supabase/edge-runtime:v1.63.5
+    image: supabase/edge-runtime:v1.54.3
     restart: unless-stopped
     environment:
       SUPABASE_URL: http://kong:8000
