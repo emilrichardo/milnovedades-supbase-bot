@@ -1,0 +1,236 @@
+version: "3.8"
+
+services:
+  # ------------------------------------------------------------------------------------------------
+  # BOTMILU - The Synchronization Worker
+  # ------------------------------------------------------------------------------------------------
+  botmilu:
+    build: .
+    container_name: botmilu
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      ALEPH_API_URL: ${ALEPH_API_URL}
+      ALEPH_API_KEY: ${ALEPH_API_KEY}
+      ALEPH_CLIENT_ID: ${ALEPH_CLIENT_ID}
+      WC_API_URL: ${WC_API_URL}
+      WC_CONSUMER_KEY: ${WC_CONSUMER_KEY}
+      WC_CONSUMER_SECRET: ${WC_CONSUMER_SECRET}
+      # Tell the bot it's in docker/prod
+      APP_ENV: production
+    networks:
+      - supabasenet
+
+  # ------------------------------------------------------------------------------------------------
+  # SUPABASE STACK (DB, Auth, Rest, Realtime, Dashboard, Gateway)
+  # ------------------------------------------------------------------------------------------------
+  studio:
+    container_name: supabase-studio
+    image: supabase/studio:20250113-ce43306
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})",
+        ]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+    networks:
+      - supabasenet
+
+  kong:
+    container_name: supabase-kong
+    image: kong:2.8.1
+    restart: unless-stopped
+    # https://github.com/supabase/supabase/blob/master/docker/volumes/api/kong.yml
+    # We map a local kong.yml. If missing, we need to generate one or use a default volume mapping strategy for Coolify.
+    # For simplicity, we assume standard Supabase Kong config is provided or we omit mapping if Coolify handles it?
+    # No, Supabase NEEDS kong.yml to map routes (auth/v1, rest/v1, etc).
+    # Since we can't easily create files in the user's host repo without them knowing,
+    # we will use an environment variable based configuration if possible,
+    # OR we map a generated file.
+    # CRITICAL: Self-hosting Supabase requires `volumes/api/kong.yml`.
+    # I will create `docker/config/kong.yml` for them.
+    volumes:
+      - ./docker/config/kong.yml:/usr/local/kong/declarative/kong.yml
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
+      # DNS Resolver for Docker
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+    networks:
+      - supabasenet
+
+  auth:
+    container_name: supabase-auth
+    image: supabase/gotrue:v2.158.1
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${SUPABASE_PUBLIC_URL}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      # ... other auth config
+    networks:
+      - supabasenet
+
+  rest:
+    container_name: supabase-rest
+    image: postgrest/postgrest:v12.2.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    networks:
+      - supabasenet
+
+  realtime:
+    container_name: supabase-realtime
+    image: supabase/realtime:v2.30.23
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: ${REALTIME_ENC_KEY}
+      API_JWT_SECRET: ${JWT_SECRET}
+      REPLICATION_MODE: RLS
+      REPLICATION_POLL_INTERVAL: 100
+      SECURE_CHANNELS: "true"
+      SLOT_NAME: supabase_realtime_rls
+      TEMPORARY_SLOT: "true"
+    networks:
+      - supabasenet
+
+  storage:
+    container_name: supabase-storage
+    image: supabase/storage-api:v1.11.13
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      # REGION: stub
+      # GLOBAL_S3_BUCKET: stub
+    volumes:
+      - ./docker/volumes/storage:/var/lib/storage
+    networks:
+      - supabasenet
+
+  meta:
+    container_name: supabase-meta
+    image: supabase/postgres-meta:v0.84.2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - supabasenet
+
+  db:
+    container_name: supabase-db
+    image: supabase/postgres:15.6.1.132
+    # image: supabase/postgres:15.1.0.147 # Note: pg_cron is included
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      # Enable pg_cron and pg_net explicitly if needed, though supabase image usually has them
+      - -c
+      - shared_preload_libraries=pg_stat_statements,pg_cron,pg_net
+      - -c
+      - cron.database_name=postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # For initial setup of Supabase schema
+    volumes:
+      - ./docker/volumes/db/data:/var/lib/postgresql/data
+      # Initialize Supabase roles/schema
+      - ./docker/volumes/db/init:/docker-entrypoint-initdb.d
+    networks:
+      - supabasenet
+
+  # Edge Runtime (Self-Hosted functions) - We are using our Bot instead,
+  # but if user wants "Edge Runtime" support for OTHER functions:
+  edge-runtime:
+    container_name: supabase-edge-runtime
+    image: supabase/edge-runtime:v1.63.5
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "54321:54321" # Expose function port?
+    networks:
+      - supabasenet
+
+networks:
+  supabasenet:
+    driver: bridge
