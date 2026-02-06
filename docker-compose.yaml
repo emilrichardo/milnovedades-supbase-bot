@@ -29,7 +29,7 @@ services:
   # ------------------------------------------------------------------------------------------------
   studio:
     container_name: supabase-studio
-    image: supabase/studio:20250113-ce43306
+    image: supabase/studio:20240729-ce43306
     restart: unless-stopped
     healthcheck:
       test:
