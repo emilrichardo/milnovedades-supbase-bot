@@ -7,6 +7,7 @@ create table if not exists public.products_data (
   id bigserial not null,
   stock_json jsonb null,
   imagen text null,
+  images jsonb default '[]'::jsonb,
   precio_minorista numeric null,
   precio_mayorista numeric null,
   precio_emprendedor numeric null,

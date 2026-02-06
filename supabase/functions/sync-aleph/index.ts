@@ -56,6 +56,30 @@ async function fetchWithTimeout(resource: string, options: RequestInit = {}) {
   }
 }
 
+// Helper: Concurrency Map
+async function mapConcurrent(
+  items: any[],
+  concurrency: number,
+  fn: (item: any) => Promise<void>,
+) {
+  const results: Promise<void>[] = [];
+  const executing: Promise<void>[] = [];
+  for (const item of items) {
+    const p = Promise.resolve().then(() => fn(item));
+    results.push(p);
+    if (concurrency <= items.length) {
+      const e = p.then(() => {
+        executing.splice(executing.indexOf(e), 1);
+      });
+      executing.push(e);
+      if (executing.length >= concurrency) {
+        await Promise.race(executing);
+      }
+    }
+  }
+  return Promise.all(results);
+}
+
 Deno.serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -66,7 +90,8 @@ Deno.serve(async (req) => {
       body = await req.json();
     } catch (e) {}
     const offset = (body as any).offset || 0;
-    const BATCH_LIMIT = 10; // Drastically reduced to prevent Supervisor Timeout (CPU/Memory limits)
+    const BATCH_LIMIT = 200; // Stabilized to 200 to avoid CPU Hard Limit (400 crashed)
+    const CONCURRENCY_LIMIT = 20; // Cap concurrent requests to 20
 
     console.log(`[Sync] Starting run. Offset: ${offset}`);
 
@@ -93,12 +118,7 @@ Deno.serve(async (req) => {
       if (attempts < MAX_RETRIES) await new Promise((r) => setTimeout(r, 2000));
     }
 
-    if (!prodRes || !prodRes.ok) {
-      const errorBody = prodRes ? await prodRes.text() : "No response";
-      throw new Error(
-        `[Sync] Aleph API Failed. Status: ${prodRes?.status}. details: ${errorBody.substring(0, 200)}`,
-      );
-    }
+    if (!prodRes || !prodRes.ok) throw new Error(`[Sync] Aleph API Failed.`);
 
     const allProducts = await prodRes.json();
     if (!Array.isArray(allProducts))
@@ -152,125 +172,128 @@ Deno.serve(async (req) => {
         categoriesMap.set(slug, { name, parentSlug, slug });
       return slug;
     };
-
     let upsertedCount = 0;
-    let deletedCount = 0;
+    await mapConcurrent(batch, CONCURRENCY_LIMIT, async (product: any) => {
+      const productCode = product.Codigo;
+      if (!productCode) return;
 
-    await Promise.all(
-      batch.map(async (product: any) => {
-        const productCode = product.Codigo;
-        if (!productCode) return;
-
+      try {
+        // 1. Get Stock
+        let stockData: any = null;
         try {
-          // 1. Get Stock
-          let stockData: any = null;
-          try {
-            const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${productCode}`;
-            const stockRes = await fetchWithTimeout(stockUrl, {
-              headers: ALEPH_HEADERS,
-              timeout: 5000,
-            });
-            if (stockRes.ok) stockData = await stockRes.json();
-          } catch (e) {}
+          const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${productCode}`;
+          const stockRes = await fetchWithTimeout(stockUrl, {
+            headers: ALEPH_HEADERS,
+            timeout: 5000,
+          });
+          if (stockRes.ok) stockData = await stockRes.json();
+        } catch (e) {}
 
-          // 2. Calculate Total Stock
-          let totalStock = 0;
-          let hasEmptyStockArray = false; // Flag for [] response
-
-          if (Array.isArray(stockData)) {
-            if (stockData.length === 0) hasEmptyStockArray = true;
-            else
-              totalStock = stockData.reduce(
-                (acc: number, item: any) =>
-                  acc + (parseFloat(item.Cantidad) || 0),
-                0,
-              );
-          } else if (typeof stockData === "number") {
-            totalStock = stockData;
-          } else if (stockData && stockData.Stock) {
-            totalStock = parseFloat(stockData.Stock);
-          }
-
-          // Debug specific product stock
-          if (productCode === "HA0383") {
-            console.log(
-              `[DEBUG] HA0383 Stock Data:`,
-              JSON.stringify(stockData),
-              ` Calculated Total: ${totalStock}, EmptyArray: ${hasEmptyStockArray}`,
-            );
-          }
-
-          // ACTION: Delete if No Stock (AND not an explicit empty array case if that means "Available but uncounted"?)
-          // User Request: "carga los que tengaan stock [] aaunque esten vacios" -> Load them even if they are empty arrays.
-          if (totalStock <= 0 && !hasEmptyStockArray) {
-            const { error } = await supabase
-              .from("products_data")
-              .delete()
-              .eq("codigo_product", productCode);
-            if (!error) deletedCount++;
-            return;
-          }
-
-          // 3. Get Image (WooCommerce)
-          let imageUrl = null;
-          let permalink = null;
-          try {
-            // Note: Searching by SKU is efficient in WC. Pagination is not needed for single SKU lookup.
-            const wcRes = await fetchWithTimeout(
-              `${WC_API_URL}/wc/v3/products?sku=${productCode}`,
-              {
-                headers: { Authorization: WC_AUTH_HEADER },
-                timeout: 5000,
-              },
-            );
-            if (wcRes.ok) {
-              const wcData = await wcRes.json();
-              if (Array.isArray(wcData) && wcData.length > 0) {
-                const match = wcData[0]; // Assume first match is correct
-                permalink = match.permalink;
-                if (match.images?.length > 0) imageUrl = match.images[0].src;
-
-                if (productCode === "HA0383")
-                  console.log(`[DEBUG] HA0383 Image Found: ${imageUrl}`);
-              }
-            }
-          } catch (e) {}
-
-          // 4. Prepare Record
-          const record = {
-            codigo_product: productCode,
-            nombre: product.Nombre,
-            stock_json: stockData || {},
-            imagen: imageUrl || product.Imagen1,
-            precio_minorista: product.Precio1,
-            precio_mayorista: product.Precio2,
-            precio_emprendedor: product.Precio3,
-            permalink: permalink,
-            rubro: product.Rubro,
-            subrubro: product.SubRubro,
-            sku: product.Barras || productCode,
-            updated_at: new Date().toISOString(),
-          };
-
-          const rubroName = (product.Rubro || "").trim();
-          const subRubroName = (product.SubRubro || "").trim();
-          if (rubroName) addCategory(rubroName);
-          if (subRubroName) addCategory(subRubroName, rubroName || null);
-
-          // 5. Upsert
-          const { error } = await supabase
-            .from("products_data")
-            .upsert(record, { onConflict: "codigo_product" });
-          if (!error) upsertedCount++;
-          else
-            console.error(
-              `[Sync] Upsert Error for ${productCode}: ${error.message}`,
-            );
-        } catch (err) {
-          console.error(`[Sync] Error processing item ${productCode}:`, err);
+        // 2. Calculate Total Stock (For data only, not filtering)
+        let totalStock = 0;
+        if (Array.isArray(stockData)) {
+          totalStock = stockData.reduce(
+            (acc: number, item: any) => acc + (parseFloat(item.Cantidad) || 0),
+            0,
+          );
+        } else if (typeof stockData === "number") {
+          totalStock = stockData;
+        } else if (stockData && stockData.Stock) {
+          totalStock = parseFloat(stockData.Stock);
         }
-      }),
-    );
+
+        // Debug
+        if (productCode === "HA0383") {
+          console.log(
+            `[DEBUG] HA0383 Stock Data:`,
+            JSON.stringify(stockData),
+            ` Calculated Total: ${totalStock}`,
+          );
+        }
+
+        // NO LONGER DELETING BASED ON STOCK - UPSERT EVERYTHING
+
+        // 3. Get Image (WooCommerce) - Capture ALL images
+        let images: any[] = [];
+        let imageUrl = null;
+        let permalink = null;
+        try {
+          const wcRes = await fetchWithTimeout(
+            `${WC_API_URL}/wc/v3/products?sku=${productCode}`,
+            {
+              headers: { Authorization: WC_AUTH_HEADER },
+              timeout: 5000,
+            },
+          );
+          if (wcRes.ok) {
+            const wcData = await wcRes.json();
+            if (Array.isArray(wcData) && wcData.length > 0) {
+              const match = wcData[0];
+              permalink = match.permalink;
+              if (match.images?.length > 0) imageUrl = match.images[0].src;
+
+              // Map all images
+              if (Array.isArray(match.images)) {
+                images = match.images.map((img: any) => ({
+                  id: img.id,
+                  src: img.src,
+                  name: img.name,
+                  alt: img.alt,
+                }));
+              }
+
+              if (productCode === "HA0383")
+                console.log(`[DEBUG] HA0383 Images Found: ${images.length}`);
+            }
+          }
+        } catch (e) {}
+
+        // 4. Prepare Record
+        const record = {
+          codigo_product: productCode,
+          nombre: product.Nombre,
+          stock_json: stockData || {},
+          imagen: imageUrl || product.Imagen1,
+          images: images, // New JSONB column
+          precio_minorista: product.Precio1,
+          precio_mayorista: product.Precio2,
+          precio_emprendedor: product.Precio3,
+          permalink: permalink,
+          rubro: product.Rubro,
+          subrubro: product.SubRubro,
+          sku: product.Barras || productCode,
+          updated_at: new Date().toISOString(),
+        };
+
+        const rubroName = (product.Rubro || "").trim();
+        const subRubroName = (product.SubRubro || "").trim();
+        if (rubroName) addCategory(rubroName);
+        if (subRubroName) addCategory(subRubroName, rubroName || null);
+
+        // 5. Upsert
+        if (productCode === "HA0383") {
+          console.log(`[DEBUG] Attempting Upsert for HA0383...`);
+        }
+
+        const { error } = await supabase
+          .from("products_data")
+          .upsert(record, { onConflict: "codigo_product" });
+
+        if (productCode === "HA0383") {
+          if (error)
+            console.error(`[DEBUG] HA0383 Upsert FAILED: ${error.message}`);
+          else console.log(`[DEBUG] HA0383 Upsert SUCCESS.`);
+        }
+
+        if (!error) upsertedCount++;
+        else
+          console.error(
+            `[Sync] Upsert Error for ${productCode}: ${error.message}`,
+          );
+      } catch (err) {
+        console.error(`[Sync] Error processing item ${productCode}:`, err);
+      }
+    });
 
     // Upsert Categories found in this batch
     const cats = Array.from(categoriesMap.values());
@@ -309,9 +332,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(
-      `[Sync] Batch Result: ${upsertedCount} Upserted, ${deletedCount} Deleted (No Stock).`,
-    );
+    console.log(`[Sync] Batch Result: ${upsertedCount} Upserted.`);
 
     // Recursive Invocation
     const nextOffset = offset + BATCH_LIMIT;
@@ -348,7 +369,6 @@ Deno.serve(async (req) => {
         success: true,
         offset: nextOffset,
         upserted: upsertedCount,
-        deleted_no_stock: deletedCount,
       }),
       { headers: { "Content-Type": "application/json" } },
     );
