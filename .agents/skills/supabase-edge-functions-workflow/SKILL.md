@@ -67,3 +67,7 @@ Al recibir una orden para trabajar con Edge Functions, sigue este procedimiento:
 
 - Instruye siempre al usuario cómo probar localmente la función: `supabase functions serve <nombre-funcion>`.
 - Explícale cómo desplegarla: `supabase functions deploy <nombre-funcion>` y recuérdale subir los secretos si son nuevos: `supabase secrets set --env-file ./supabase/.env.local`.
+
+### 5. Documentación Obligatoria
+
+- **SIEMPRE que crees o modifiques una funcionalidad de una Edge Function, debes de forma OBLIGATORIA actualizar el archivo `README.md`** del proyecto en ese mismo paso, integrando los comandos curl de ejemplo, rutas o menciones de la nueva función, cuidando de usar las variables de entorno para que el usuario pueda copiar y pegar.

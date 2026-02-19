@@ -164,6 +164,16 @@ source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321
   -H "Content-Type: application/json"
 ```
 
+### 4. Fetch Client Purchases
+
+Fetches the complete purchase history for a specific client, including all voucher items (`comprobantes_items`).
+
+```bash
+source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/get-client-purchases?cliente_id=2519" \
+  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json"
+```
+
 ---
 
 ## Configuration
