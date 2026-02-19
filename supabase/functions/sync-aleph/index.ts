@@ -42,7 +42,7 @@ function slugify(text: string): string {
 
 // Helper: Fetch with Timeout
 async function fetchWithTimeout(resource: string, options: RequestInit = {}) {
-  const { timeout = 30000 } = options as any;
+  const { timeout = 120000 } = options as any;
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
@@ -196,7 +196,7 @@ async function syncClients(supabase: any) {
   console.log(`[Sync] Fetching clients changes since ${dateStr}...`);
   const res = await fetchWithTimeout(url, {
     headers: { ...ALEPH_HEADERS, "Cache-Control": "no-cache" },
-    timeout: 60000,
+    timeout: 300000,
   });
 
   if (!res.ok) throw new Error(`Aleph API Error: ${res.status}`);
@@ -313,7 +313,7 @@ async function syncVouchers(
 
   const res = await fetchWithTimeout(url, {
     headers: { ...ALEPH_HEADERS, "Cache-Control": "no-cache" },
-    timeout: 60000,
+    timeout: 300000,
   });
 
   if (!res.ok) throw new Error(`Aleph API Error: ${res.status}`);
@@ -470,7 +470,7 @@ Deno.serve(async (req) => {
           Pragma: "no-cache",
           Expires: "0",
         },
-        timeout: 60000,
+        timeout: 300000,
       });
       if (!prodRes.ok) throw new Error("Aleph API Failed");
       const allProducts = await prodRes.json();
