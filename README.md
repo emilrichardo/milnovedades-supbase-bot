@@ -7,12 +7,15 @@ This project implements a product synchronization system using **Supabase Native
 1.  **Database**: PostgreSQL hosted on Supabase.
     - `products_data`: Stores merged product info (Price, Stock, Images).
     - `categories`: Stores hierarchical category structure (Rubro/Subrubro).
-2.  **Edge Function** (`sync-aleph`): A Deno/TypeScript function that performs the heavy lifting:
+2.  **CMS (Content Management System)**: Payload CMS (Next.js App Router).
+    - Connected natively to the same local Supabase Postgres database.
+    - Reserved for specific custom collections and internal business management tooling.
+3.  **Edge Function** (`sync-aleph`): A Deno/TypeScript function that performs the heavy lifting:
     - Fetches all products from Aleph.
     - Fetches real-time stock and WooCommerce images (concurrently).
     - Upserts data to the database.
     - Cleans up stale records (products no longer in the feed).
-3.  **Scheduler**: `pg_cron` extension in the database triggers the Edge Function every hour via HTTP POST.
+4.  **Scheduler**: `pg_cron` extension in the database triggers the Edge Function every hour via HTTP POST.
 
 ---
 
@@ -68,12 +71,21 @@ You can invoke the function directly on your machine.
 npx supabase functions serve --no-verify-jwt --env-file .env.local
 ```
 
-In another terminal, trigger it:
-
 ```bash
 curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/sync-aleph' \
   --header 'Content-Type: application/json'
 ```
+
+### 6. Start Payload CMS Local Server
+
+To interact with the Payload CMS admin panel connected to your local Supabase database:
+
+```bash
+cd payload-cms
+npm run dev
+```
+
+Access the panel locally through `http://localhost:3000/admin`. The database connection is handled natively to your Supabase default Postgres port (`127.0.0.1:54322`).
 
 ---
 
