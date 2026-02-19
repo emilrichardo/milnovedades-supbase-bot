@@ -177,8 +177,7 @@ async function syncClients(supabase: any) {
   console.log("[Sync] Syncing Clients (Full Update)...");
 
   // Fetch ALL clients (no date filter supported)
-  // Add cache buster
-  const url = `${ALEPH_API_URL}/Clientes/GetClientesAll?t=${Date.now()}`;
+  const url = `${ALEPH_API_URL}/Clientes/GetClientesAll`;
 
   console.log(`[Sync] Fetching all clients from Aleph...`);
   const res = await fetchWithTimeout(url, {
