@@ -159,7 +159,7 @@ curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=com
 **Custom Date Range (dd-mm-yyyy):**
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=comprobantes&fromDate=01-01-2025&toDate=10-01-2025' \
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=comprobantes&fechadesde=01-01-2025&fechahasta=10-01-2025' \
   -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
   -H 'Content-Type: application/json'
 ```

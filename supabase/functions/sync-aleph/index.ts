@@ -436,8 +436,9 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const type = url.searchParams.get("type") || "products";
-    const fromDate = url.searchParams.get("fromDate"); // expected dd-mm-yyyy for comprobantes
-    const toDate = url.searchParams.get("toDate");
+    // Parameter renaming: fechadesde / fechahasta
+    const fromDate = url.searchParams.get("fechadesde");
+    const toDate = url.searchParams.get("fechahasta");
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
