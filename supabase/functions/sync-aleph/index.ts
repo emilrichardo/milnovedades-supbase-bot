@@ -219,7 +219,9 @@ async function syncClients(supabase: any) {
     // Prepare upsert
     const records = chunk.map((c: any) => ({
       codigo_cliente: c.Codigo || c.ID || c.id || c.cliente,
-      razon_social: c.nombre || c.RAZONSOCIAL || c.Nombre || c.NOMBRE,
+      // Separate Name and Razon Social
+      nombre: c.nombre || c.Nombre || c.NOMBRE,
+      razon_social: c.razon_social || c.RAZONSOCIAL || c.RazonSocial,
       cuit: c.cuit || c.CUIT || "",
       lis_pre: c.LIS_PRE,
       email: c.EMAIL,
@@ -531,7 +533,8 @@ Deno.serve(async (req) => {
                 totalStock = parseFloat(stockData.Stock);
             } catch (e) {}
 
-            if (totalStock <= 0) return;
+            // STOCK FILTER REMOVED: Sync all products regardless of stock
+            // if (totalStock <= 0) return;
 
             // Images (From Cache)
             const cached =

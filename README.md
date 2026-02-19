@@ -50,7 +50,17 @@ Create the tables and extensions in your local DB:
 npx supabase migration up
 ```
 
-### 4. Test the Edge Function Locally
+### 4. Configure Self-Hosted Environment
+
+For self-hosted instances (Docker/Coolify), you must set the `app.api_url` variable to your project's function URL. The default is `http://127.0.0.1:54321/functions/v1/sync-aleph`.
+
+To change it:
+
+```sql
+ALTER DATABASE postgres SET app.api_url = 'http://your-production-url/functions/v1/sync-aleph';
+```
+
+### 5. Test the Edge Function Locally
 
 You can invoke the function directly on your machine.
 

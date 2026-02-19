@@ -28,11 +28,20 @@ CREATE OR REPLACE FUNCTION public.update_cron_schedule()
 RETURNS TRIGGER AS $function$
 DECLARE
     job_name text := 'sync-' || NEW.collection;
-    -- Note: In production, you would typically use an environment variable or a configuration table for the API URL
-    -- For local development with Supabase CLI + Docker, use host.docker.internal to reach the host
-    api_url_base text := 'http://host.docker.internal:54321/functions/v1/sync-aleph?type=';
+    -- Use 'app.api_url' session variable for flexibility, or fallback to default local URL
+    -- To set in production: ALTER DATABASE postgres SET app.api_url = 'http://your-production-url/functions/v1/sync-aleph';
+    base_url text := current_setting('app.api_url', true);
+    default_url text := 'http://127.0.0.1:54321/functions/v1/sync-aleph'; -- Local Self-Hosted / Dev Default
+    api_url_base text;
     full_url text;
 BEGIN
+    -- Determine API URL
+    IF base_url IS NULL OR base_url = '' THEN
+        api_url_base := default_url || '?type=';
+    ELSE
+        api_url_base := base_url || '?type=';
+    END IF;
+
     -- Unschedule existing job to avoid duplicates or stale schedules
     PERFORM cron.unschedule(job_name);
 

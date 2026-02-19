@@ -26,6 +26,7 @@ CREATE TABLE public.clientes (
     cot_dpto text,
     horario_entrega text,
     -- Additional fields added in later updates
+    nombre text,
     direccion text,
     localidad text,
     telefono text,
