@@ -6,8 +6,7 @@ DROP TABLE IF EXISTS public.clientes CASCADE;
 
 CREATE TABLE public.clientes (
     id bigserial NOT NULL,
-    codigo_cliente bigint,
-    nombre text,
+    codigo_cliente bigint, -- Aleph ID
     razon_social text,
     cuit text,
     lis_pre integer,
@@ -26,6 +25,8 @@ CREATE TABLE public.clientes (
     cot_piso text,
     cot_dpto text,
     horario_entrega text,
+    -- Additional fields added in later updates
+    nombre text,
     direccion text,
     localidad text,
     telefono text,

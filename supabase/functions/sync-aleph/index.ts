@@ -429,14 +429,14 @@ async function syncVouchers(
 Deno.serve(async (req) => {
   if (req.method === "GET") {
     return new Response(
-      "Sync Service Ready. Use POST with ?type=products|clients|vouchers",
+      "Sync Service Ready. Use POST with ?type=products|clients|comprobantes",
     );
   }
 
   try {
     const url = new URL(req.url);
     const type = url.searchParams.get("type") || "products";
-    const fromDate = url.searchParams.get("fromDate"); // expected dd-mm-yyyy for vouchers
+    const fromDate = url.searchParams.get("fromDate"); // expected dd-mm-yyyy for comprobantes
     const toDate = url.searchParams.get("toDate");
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -445,8 +445,8 @@ Deno.serve(async (req) => {
 
     if (type === "clients") {
       result = await syncClients(supabase);
-    } else if (type === "vouchers") {
-      // e.g. ?type=vouchers&fromDate=01-01-2025&toDate=10-01-2025
+    } else if (type === "comprobantes") {
+      // e.g. ?type=comprobantes&fromDate=01-01-2025&toDate=10-01-2025
       result = await syncVouchers(
         supabase,
         fromDate || undefined,

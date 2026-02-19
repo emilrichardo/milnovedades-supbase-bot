@@ -144,14 +144,14 @@ curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=cli
   -H 'Content-Type: application/json'
 ```
 
-### 3. Sync Vouchers
+### 3. Sync Comprobantes
 
 Fetches vouchers (invoices, orders) from Aleph.
 
 **Standard Sync (Last 30 days or auto-detected):**
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=vouchers' \
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=comprobantes' \
   -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
   -H 'Content-Type: application/json'
 ```
@@ -159,7 +159,7 @@ curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=vou
 **Custom Date Range (dd-mm-yyyy):**
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=vouchers&fromDate=01-01-2025&toDate=10-01-2025' \
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=comprobantes&fromDate=01-01-2025&toDate=10-01-2025' \
   -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
   -H 'Content-Type: application/json'
 ```
