@@ -62,7 +62,8 @@ BEGIN
   auth_header := '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb;
 
   -- Cleanup old schedules
-  PERFORM cron.unschedule('sync-aleph-hourly');
+  -- Cleanup old schedules
+  PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'sync-aleph-hourly';
 
   PERFORM cron.schedule(
     'sync-aleph-4h',
