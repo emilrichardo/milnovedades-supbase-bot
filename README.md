@@ -110,23 +110,81 @@ npx supabase functions deploy sync-aleph
 
 ---
 
-## Configuration & Notes
+## API Reference
 
-### Cron Job Setup
+The `sync-aleph` Edge Function supports multiple sync modes via the `type` query parameter.
 
-The cron job is defined in `supabase/migrations/20240205130000_init_sync_architecture.sql`.
-**Important**: Before deploying to production, edit this file to ensure the `url` and `Authorization` header point to your **Production Project URL** and **Service Role Key**.
+### 1. Sync Products (Default)
 
-### Manual Trigger
-
-You can manually trigger the sync at any time via the Supabase Dashboard > Edge Functions, or via CURL:
+Fetches all products, updates stock and prices, and syncs categories.
 
 ```bash
-curl -L -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph' \
-  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>'
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=products' \
+  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
+  -H 'Content-Type: application/json'
+```
+
+### 2. Sync Clients
+
+Fetches client updates from Aleph.
+
+```bash
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=clients' \
+  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
+  -H 'Content-Type: application/json'
+```
+
+### 3. Sync Vouchers
+
+Fetches vouchers (invoices, orders) from Aleph.
+
+**Standard Sync (Last 30 days or auto-detected):**
+
+```bash
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=vouchers' \
+  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
+  -H 'Content-Type: application/json'
+```
+
+**Custom Date Range (dd-mm-yyyy):**
+
+```bash
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=vouchers&fromDate=01-01-2025&toDate=10-01-2025' \
+  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
+  -H 'Content-Type: application/json'
+```
+
+---
+
+## Configuration
+
+### Sync Schedule
+
+The sync schedule is managed dynamically via the `public.sync_config` table in the database. You do not need to edit migration files to change the schedule.
+
+**To view current schedules:**
+
+```sql
+SELECT * FROM public.sync_config;
+```
+
+**To update a schedule (e.g., run clients sync every 6 hours):**
+
+```sql
+UPDATE public.sync_config
+SET cron_expression = '0 */6 * * *'
+WHERE collection = 'clients';
+```
+
+**To disable a sync:**
+
+```sql
+UPDATE public.sync_config
+SET is_active = false
+WHERE collection = 'products';
 ```
 
 ### Troubleshooting
 
 - **Logs**: View function logs in the Supabase Dashboard > Edge Functions > sync-aleph > Logs.
-- **Timeouts**: The function is designed with concurrency. If it times out (Supabase limit is 400s max usually), consider reducing batch size or upgrading the compute instance via Supabase support/settings.
+- **Timeouts**: The function is designed with concurrency. If it times out, consider reducing batch size in the code.
