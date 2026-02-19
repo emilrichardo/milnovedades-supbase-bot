@@ -129,9 +129,9 @@ The `sync-aleph` Edge Function supports multiple sync modes via the `type` query
 Fetches all products, updates stock and prices, and syncs categories.
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=products' \
-  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
-  -H 'Content-Type: application/json'
+source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=products" \
+  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
 ### 2. Sync Clients
@@ -139,9 +139,9 @@ curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=pro
 Fetches client updates from Aleph.
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=clients' \
-  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
-  -H 'Content-Type: application/json'
+source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=clients" \
+  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
 ### 3. Sync Comprobantes
@@ -151,17 +151,17 @@ Fetches vouchers (invoices, orders) from Aleph.
 **Standard Sync (Last 30 days or auto-detected):**
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=comprobantes' \
-  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
-  -H 'Content-Type: application/json'
+source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=comprobantes" \
+  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
 **Custom Date Range (dd-mm-yyyy):**
 
 ```bash
-curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-aleph?type=comprobantes&fechadesde=01-01-2025&fechahasta=10-01-2025' \
-  -H 'Authorization: Bearer <SERVICE_ROLE_KEY>' \
-  -H 'Content-Type: application/json'
+source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=comprobantes&fechadesde=01-01-2025&fechahasta=10-01-2025" \
+  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
 ---
