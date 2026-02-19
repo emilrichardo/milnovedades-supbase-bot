@@ -174,26 +174,13 @@ function parseAlephDate(dateStr: string | null): Date | null {
 
 // Client Sync Logic
 async function syncClients(supabase: any) {
-  console.log("[Sync] Syncing Clients...");
+  console.log("[Sync] Syncing Clients (Full Update)...");
 
-  // Get last sync date from DB
-  const { data: lastClient, error } = await supabase
-    .from("clientes")
-    .select("fecha_cambio")
-    .order("fecha_cambio", { ascending: false })
-    .limit(1)
-    .single();
+  // Fetch ALL clients (no date filter supported)
+  // Add cache buster
+  const url = `${ALEPH_API_URL}/Clientes/GetClientesAll?t=${Date.now()}`;
 
-  let lastSyncDate = new Date("2000-01-01");
-  if (lastClient?.fecha_cambio) {
-    lastSyncDate = new Date(lastClient.fecha_cambio);
-  }
-
-  // Aleph expects dd-mm-yyyy
-  const dateStr = formatDateDDMMYYYY(lastSyncDate);
-  const url = `${ALEPH_API_URL}/Clientes/GetClientesCambio/${dateStr}?t=${Date.now()}`;
-
-  console.log(`[Sync] Fetching clients changes since ${dateStr}...`);
+  console.log(`[Sync] Fetching all clients from Aleph...`);
   const res = await fetchWithTimeout(url, {
     headers: { ...ALEPH_HEADERS, "Cache-Control": "no-cache" },
     timeout: 300000,
