@@ -235,6 +235,7 @@ services:
   # PAYLOAD CMS
   # ------------------------------------------------------------------------------------------------
   payload-cms:
+    profiles: ["disabled"]
     container_name: payload-cms
     build:
       context: ./payload-cms
