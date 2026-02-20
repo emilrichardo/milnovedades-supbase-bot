@@ -317,23 +317,21 @@ async function syncVouchers(
 
   console.log(`[Sync] Found ${vouchers.length} vouchers.`);
 
-  // Process in chunks to avoid massive payload
-  const CHUNK_SIZE = 50;
+  // Process in small chunks - each voucher has nested PedidosItems so payloads get large
+  const CHUNK_SIZE = 10;
+  let totalUpserted = 0;
+
   for (let i = 0; i < vouchers.length; i += CHUNK_SIZE) {
     const chunk = vouchers.slice(i, i + CHUNK_SIZE);
-
     const voucherRecords: any[] = [];
-    const itemsRecords: any[] = [];
-
-    // We need to fetch the internal ID of the voucher after insertion,
-    // or we use the 'numero' as unique key to look it up.
-    // Since we defined 'numero' as unique in DB, we can use upsert.
 
     for (const v of chunk) {
+      // Strip PedidosItems from raw_data to reduce payload (items stored separately)
+      const { PedidosItems: _items, ...rawWithoutItems } = v;
       voucherRecords.push({
-        cliente_id: v.cliente, // References Aleph ID
+        cliente_id: v.cliente,
         comprobante_tipo_id: v.comprobante,
-        numero: v.numero, // Unique
+        numero: v.numero,
         fecha: parseAlephDate(v.fecha),
         hora: v.hora,
         estado: v.estado,
@@ -356,26 +354,49 @@ async function syncVouchers(
         cotizacion_uss: v.cotizacionUSS,
         responsable: v.responsable,
         estado_comprobante: v.estadoComprobante,
-        raw_data: v,
+        raw_data: rawWithoutItems,
         updated_at: new Date().toISOString(),
       });
     }
 
-    // Upsert vouchers
-    const { data: upsertedVouchers, error: vError } = await supabase
-      .from("comprobantes")
-      .upsert(voucherRecords, { onConflict: "numero" })
-      .select("id, numero");
+    // Upsert vouchers with retry
+    let upsertedVouchers: any[] | null = null;
+    let vError: any = null;
 
-    if (vError) {
-      console.error("[Sync] Voucher Upsert Error:", vError);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const result = await supabase
+        .from("comprobantes")
+        .upsert(voucherRecords, { onConflict: "numero" })
+        .select("id, numero");
+
+      if (!result.error) {
+        upsertedVouchers = result.data;
+        vError = null;
+        break;
+      }
+
+      vError = result.error;
+      console.error(
+        `[Sync] Voucher Upsert Error (attempt ${attempt}/3):`,
+        vError,
+      );
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    if (vError || !upsertedVouchers) {
+      console.error(
+        `[Sync] Skipping chunk ${i}-${i + CHUNK_SIZE} after 3 failures`,
+      );
       continue;
     }
 
+    totalUpserted += upsertedVouchers.length;
+
     // Map items to inserted voucher IDs
     const voucherMap = new Map();
-    upsertedVouchers?.forEach((uv: any) => voucherMap.set(uv.numero, uv.id));
+    upsertedVouchers.forEach((uv: any) => voucherMap.set(uv.numero, uv.id));
 
+    const itemsRecords: any[] = [];
     for (const v of chunk) {
       const vId = voucherMap.get(v.numero);
       if (!vId || !v.PedidosItems || !Array.isArray(v.PedidosItems)) continue;
@@ -394,9 +415,7 @@ async function syncVouchers(
       }
     }
 
-    // Insert Items (Delete old ones for these vouchers first? Or just append?
-    // Ideally replace items for these vouchers to avoid dupes if re-synced)
-    // For simplicity/safety, let's delete items for these vouchers first
+    // Replace items for these vouchers
     if (itemsRecords.length > 0) {
       const voucherIds = Array.from(voucherMap.values());
       await supabase
@@ -404,14 +423,23 @@ async function syncVouchers(
         .delete()
         .in("comprobante_id", voucherIds);
 
-      const { error: iError } = await supabase
-        .from("comprobantes_items")
-        .insert(itemsRecords);
-      if (iError) console.error("[Sync] Items Insert Error:", iError);
+      // Insert items in sub-chunks of 50 to avoid large payloads
+      const ITEMS_CHUNK = 50;
+      for (let j = 0; j < itemsRecords.length; j += ITEMS_CHUNK) {
+        const itemChunk = itemsRecords.slice(j, j + ITEMS_CHUNK);
+        const { error: iError } = await supabase
+          .from("comprobantes_items")
+          .insert(itemChunk);
+        if (iError) console.error("[Sync] Items Insert Error:", iError);
+      }
     }
 
+    console.log(
+      `[Sync] Vouchers Progress: ${Math.min(i + CHUNK_SIZE, vouchers.length)}/${vouchers.length} (upserted: ${totalUpserted})`,
+    );
+
     // Yield to event loop
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   return { success: true, count: vouchers.length };
