@@ -29,7 +29,7 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL || '',
     },
     schemaName: 'payload',
-    push: false,
+    push: true,
   }),
   sharp,
   plugins: [],
