@@ -2,11 +2,11 @@
   "name": "botmilu",
   "version": "1.0.0",
   "scripts": {
-    "sync:dev:products": ". .env && curl -X POST \"http://127.0.0.1:8001/?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"",
-    "sync:dev:clients": ". .env && curl -X POST \"http://127.0.0.1:8001/?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"",
-    "sync:dev:comprobantes": ". .env && curl -X POST \"http://127.0.0.1:8001/?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"",
+    "sync:dev:products": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:dev:clients": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:dev:comprobantes": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
     "sync:dev:all": "npm run sync:dev:products && npm run sync:dev:clients && npm run sync:dev:comprobantes",
-    "test:purchases": ". .env && curl -X POST \"http://127.0.0.1:8001/get-client-purchases?cliente_id=2519\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\""
+    "test:purchases": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/get-client-purchases?cliente_id=2519\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'"
   },
   "dependencies": {},
   "devDependencies": {
