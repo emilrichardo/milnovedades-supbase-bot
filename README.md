@@ -1,4 +1,4 @@
-# BotMilu - Sync Architecture
+# BotMilu- - Sync Architecture
 
 This project implements a product synchronization system using **Supabase Native** technologies. It syncs products from the Aleph API and WooCommerce to a Supabase database.
 
