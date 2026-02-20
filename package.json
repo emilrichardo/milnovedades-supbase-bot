@@ -6,6 +6,10 @@
     "sync:dev:clients": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
     "sync:dev:comprobantes": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
     "sync:dev:all": "npm run sync:dev:products && npm run sync:dev:clients && npm run sync:dev:comprobantes",
+    "sync:local:products": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/sync-aleph?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:local:clients": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/sync-aleph?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:local:comprobantes": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/sync-aleph?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:local:all": "npm run sync:local:products && npm run sync:local:clients && npm run sync:local:comprobantes",
     "test:purchases": "bash -c 'source .env && curl -X POST \"http://127.0.0.1:8001/get-client-purchases?cliente_id=2519\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'"
   },
   "dependencies": {},

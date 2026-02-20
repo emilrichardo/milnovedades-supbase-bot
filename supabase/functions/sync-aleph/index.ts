@@ -286,8 +286,13 @@ async function syncVouchers(
 
     const lastDate = lastVoucher?.fecha
       ? new Date(lastVoucher.fecha)
-      : new Date();
-    if (!lastVoucher?.fecha) lastDate.setDate(lastDate.getDate() - 30); // Default 30 days back if empty
+      : new Date(2025, 0, 1); // Default to Jan 1, 2025 to catch older data if DB is empty
+
+    if (lastVoucher?.fecha) {
+      // Enforce fetching starting a few days before the last voucher to catch late inserts
+      lastDate.setDate(lastDate.getDate() - 5);
+    }
+
     fromDate = formatDateDDMMYYYY(lastDate);
   }
   if (!toDate) {
