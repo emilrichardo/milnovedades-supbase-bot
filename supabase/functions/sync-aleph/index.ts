@@ -412,224 +412,261 @@ async function syncVouchers(
   return { success: true, count: vouchers.length };
 }
 
+// Config Update Helper
+async function updateSyncConfig(supabase: any, collectionName: string) {
+  try {
+    const now = new Date().toISOString();
+    await supabase
+      .from("sync_config")
+      .update({
+        last_run_at: now,
+        updated_at: now,
+      })
+      .eq("collection", collectionName);
+  } catch (err) {
+    console.error(
+      `[Sync] Error updating sync_config for ${collectionName}:`,
+      err,
+    );
+  }
+}
+
+// Products Sync Logic
+async function syncProducts(supabase: any) {
+  console.log("[Sync] Syncing Products...");
+  imageCache.clear();
+  // 1. Preload Images
+  await preloadWcImages();
+
+  // 2. Fetch All Products from Aleph
+  console.log("[Sync] Fetching Aleph Products...");
+  // Add cache buster to URL
+  const productsUrl = `${ALEPH_API_URL}/Productos/GetArticulosallsinimagen?t=${Date.now()}`;
+  const prodRes = await fetchWithTimeout(productsUrl, {
+    headers: {
+      ...ALEPH_HEADERS,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+    timeout: 300000,
+  });
+  if (!prodRes.ok) throw new Error("Aleph API Failed");
+  const allProducts = await prodRes.json();
+  if (!Array.isArray(allProducts)) throw new Error("Invalid format from Aleph");
+
+  const total = allProducts.length;
+  console.log(`[Sync] Processing ${total} products...`);
+
+  // 3. Process in chunks
+  // Reduced chunk size and concurrency to fit within CPU limits
+  const CHUNK_SIZE = 50;
+  const FETCH_CONCURRENCY = 25; // Increased from 10 to 25 to improve speed
+
+  let processed = 0;
+  let upserted = 0;
+
+  const categoriesMap = new Map();
+  const addCategory = (name: string, parentName: string | null = null) => {
+    if (!name) return null;
+    const slug = slugify(name);
+    const parentSlug = parentName ? slugify(parentName) : null;
+    if (!categoriesMap.has(slug))
+      categoriesMap.set(slug, { name, parentSlug, slug });
+    return slug;
+  };
+
+  const startTime = Date.now();
+
+  for (let i = 0; i < total; i += CHUNK_SIZE) {
+    const chunk = allProducts.slice(i, i + CHUNK_SIZE);
+    const records: any[] = [];
+
+    // Fetch Stock Concurrently
+    await mapConcurrentVoid(chunk, FETCH_CONCURRENCY, async (product: any) => {
+      const code = product.Codigo;
+      if (!code) return;
+
+      // Stock
+      let stockData: any = null;
+      let totalStock = 0;
+      try {
+        const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${code}`;
+        const stockRes = await fetchWithTimeout(stockUrl, {
+          headers: ALEPH_HEADERS,
+          timeout: 5000,
+        });
+        if (stockRes.ok) stockData = await stockRes.json();
+
+        if (Array.isArray(stockData)) {
+          totalStock = stockData.reduce(
+            (acc: number, item: any) => acc + (parseFloat(item.Cantidad) || 0),
+            0,
+          );
+        } else if (typeof stockData === "number") totalStock = stockData;
+        else if (stockData?.Stock) totalStock = parseFloat(stockData.Stock);
+      } catch (e) {}
+
+      // STOCK FILTER REMOVED: Sync all products regardless of stock
+      // if (totalStock <= 0) return;
+
+      // Images (From Cache)
+      const cached = imageCache.get(code) || imageCache.get(product.Barras);
+      const images = cached?.images || [];
+      const permalink = cached?.permalink || null;
+
+      // Categories
+      const rubroName = (product.Rubro || "").trim();
+      const subRubroName = (product.SubRubro || "").trim();
+      if (rubroName) addCategory(rubroName);
+      if (subRubroName) addCategory(subRubroName, rubroName || null);
+
+      // Record
+      records.push({
+        codigo_product: code,
+        nombre: product.Nombre,
+        stock_json: stockData || {},
+        imagen: images.length > 0 ? images[0].src : product.Imagen1,
+        images: images,
+        precio_minorista: product.Precio1,
+        precio_mayorista: product.Precio2,
+        precio_emprendedor: product.Precio3,
+        permalink: permalink,
+        rubro: product.Rubro,
+        subrubro: product.SubRubro,
+        sku: product.Barras || code,
+        updated_at: new Date().toISOString(),
+      });
+    });
+
+    // Bulk Upsert
+    if (records.length > 0) {
+      const { error } = await supabase
+        .from("products_data")
+        .upsert(records, { onConflict: "codigo_product" });
+      if (error) console.error("[Sync] Bulk Upsert Error:", error);
+      else upserted += records.length;
+    }
+
+    processed += chunk.length;
+    console.log(`[Sync] Progress: ${processed}/${total}`);
+  }
+
+  // 4. Upsert Categories
+  console.log("[Sync] Upserting Categories...");
+  const cats = Array.from(categoriesMap.values());
+
+  // Roots
+  const roots = cats.filter((c) => !c.parentSlug);
+  if (roots.length > 0) {
+    // Batch categories upsert too
+    const CAT_CHUNK = 50;
+    for (let i = 0; i < roots.length; i += CAT_CHUNK) {
+      await supabase.from("categories").upsert(
+        roots.slice(i, i + CAT_CHUNK).map((c) => ({
+          slug: c.slug,
+          nombre: c.name,
+          parent_id: null,
+          updated_at: new Date().toISOString(),
+        })),
+        { onConflict: "slug" },
+      );
+    }
+  }
+
+  // Childs
+  const childs = cats.filter((c) => c.parentSlug);
+  if (childs.length > 0) {
+    const { data: catData } = await supabase
+      .from("categories")
+      .select("id, slug");
+    const catIdMap = new Map(catData?.map((x: any) => [x.slug, x.id]));
+
+    const childRecords = childs.map((c) => ({
+      slug: c.slug,
+      nombre: c.name,
+      parent_id: catIdMap.get(c.parentSlug) || null,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const CAT_CHUNK = 50;
+    for (let i = 0; i < childRecords.length; i += CAT_CHUNK) {
+      await supabase
+        .from("categories")
+        .upsert(childRecords.slice(i, i + CAT_CHUNK), {
+          onConflict: "slug",
+        });
+    }
+  }
+
+  // 5. Cleanup
+  console.log("[Sync] Cleaning up stale products...");
+  const threshold = new Date(Date.now() - 1000 * 60 * 60).toISOString();
+  await supabase
+    .from("products_data")
+    .delete({ count: "exact" })
+    .lt("updated_at", threshold);
+
+  const result = { success: true, count: upserted };
+  return result;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "GET") {
     return new Response(
-      "Sync Service Ready. Use POST with ?type=products|clients|comprobantes",
+      "Sync Service Ready. Use POST with ?type=products|clients|comprobantes|all",
     );
   }
 
   try {
     const url = new URL(req.url);
-    const type = url.searchParams.get("type") || "products";
-    // Parameter renaming: fechadesde / fechahasta
+    const type = url.searchParams.get("type") || "all";
     const fromDate = url.searchParams.get("fechadesde");
     const toDate = url.searchParams.get("fechahasta");
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
     let result;
 
     if (type === "clients") {
       result = await syncClients(supabase);
+      await updateSyncConfig(supabase, "clients");
     } else if (type === "comprobantes") {
-      // e.g. ?type=comprobantes&fromDate=01-01-2025&toDate=10-01-2025
       result = await syncVouchers(
         supabase,
         fromDate || undefined,
         toDate || undefined,
       );
+      await updateSyncConfig(supabase, "comprobantes");
+    } else if (type === "products") {
+      result = await syncProducts(supabase);
+      await updateSyncConfig(supabase, "products");
     } else {
-      // Default: Products
-      imageCache.clear();
-      // 1. Preload Images
-      await preloadWcImages();
+      console.log("[Sync] Starting FULL Sync...");
+      const resClients = await syncClients(supabase);
+      await updateSyncConfig(supabase, "clients");
 
-      // 2. Fetch All Products from Aleph
-      console.log("[Sync] Fetching Aleph Products...");
-      // Add cache buster to URL
-      const productsUrl = `${ALEPH_API_URL}/Productos/GetArticulosallsinimagen?t=${Date.now()}`;
-      const prodRes = await fetchWithTimeout(productsUrl, {
-        headers: {
-          ...ALEPH_HEADERS,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-        timeout: 300000,
-      });
-      if (!prodRes.ok) throw new Error("Aleph API Failed");
-      const allProducts = await prodRes.json();
-      if (!Array.isArray(allProducts))
-        throw new Error("Invalid format from Aleph");
+      const resVouchers = await syncVouchers(
+        supabase,
+        fromDate || undefined,
+        toDate || undefined,
+      );
+      await updateSyncConfig(supabase, "comprobantes");
 
-      const total = allProducts.length;
-      console.log(`[Sync] Processing ${total} products...`);
+      const resProducts = await syncProducts(supabase);
+      await updateSyncConfig(supabase, "products");
 
-      // 3. Process in chunks
-      // Reduced chunk size and concurrency to fit within CPU limits
-      const CHUNK_SIZE = 50;
-      const FETCH_CONCURRENCY = 25; // Increased from 10 to 25 to improve speed
-
-      let processed = 0;
-      let upserted = 0;
-
-      const categoriesMap = new Map();
-      const addCategory = (name: string, parentName: string | null = null) => {
-        if (!name) return null;
-        const slug = slugify(name);
-        const parentSlug = parentName ? slugify(parentName) : null;
-        if (!categoriesMap.has(slug))
-          categoriesMap.set(slug, { name, parentSlug, slug });
-        return slug;
+      result = {
+        clients: resClients,
+        comprobantes: resVouchers,
+        products: resProducts,
       };
-
-      const startTime = Date.now();
-
-      for (let i = 0; i < total; i += CHUNK_SIZE) {
-        const chunk = allProducts.slice(i, i + CHUNK_SIZE);
-        const records: any[] = [];
-
-        // Fetch Stock Concurrently
-        await mapConcurrentVoid(
-          chunk,
-          FETCH_CONCURRENCY,
-          async (product: any) => {
-            const code = product.Codigo;
-            if (!code) return;
-
-            // Stock
-            let stockData: any = null;
-            let totalStock = 0;
-            try {
-              const stockUrl = `http://aleph.dyndns.info/integracion/Stock/GetStock?Producto=${code}`;
-              const stockRes = await fetchWithTimeout(stockUrl, {
-                headers: ALEPH_HEADERS,
-                timeout: 5000,
-              });
-              if (stockRes.ok) stockData = await stockRes.json();
-
-              if (Array.isArray(stockData)) {
-                totalStock = stockData.reduce(
-                  (acc: number, item: any) =>
-                    acc + (parseFloat(item.Cantidad) || 0),
-                  0,
-                );
-              } else if (typeof stockData === "number") totalStock = stockData;
-              else if (stockData?.Stock)
-                totalStock = parseFloat(stockData.Stock);
-            } catch (e) {}
-
-            // STOCK FILTER REMOVED: Sync all products regardless of stock
-            // if (totalStock <= 0) return;
-
-            // Images (From Cache)
-            const cached =
-              imageCache.get(code) || imageCache.get(product.Barras);
-            const images = cached?.images || [];
-            const permalink = cached?.permalink || null;
-
-            // Categories
-            const rubroName = (product.Rubro || "").trim();
-            const subRubroName = (product.SubRubro || "").trim();
-            if (rubroName) addCategory(rubroName);
-            if (subRubroName) addCategory(subRubroName, rubroName || null);
-
-            // Record
-            records.push({
-              codigo_product: code,
-              nombre: product.Nombre,
-              stock_json: stockData || {},
-              imagen: images.length > 0 ? images[0].src : product.Imagen1,
-              images: images,
-              precio_minorista: product.Precio1,
-              precio_mayorista: product.Precio2,
-              precio_emprendedor: product.Precio3,
-              permalink: permalink,
-              rubro: product.Rubro,
-              subrubro: product.SubRubro,
-              sku: product.Barras || code,
-              updated_at: new Date().toISOString(),
-            });
-          },
-        );
-
-        // Bulk Upsert
-        if (records.length > 0) {
-          const { error } = await supabase
-            .from("products_data")
-            .upsert(records, { onConflict: "codigo_product" });
-          if (error) console.error("[Sync] Bulk Upsert Error:", error);
-          else upserted += records.length;
-        }
-
-        processed += chunk.length;
-        console.log(`[Sync] Progress: ${processed}/${total}`);
-      }
-
-      // 4. Upsert Categories
-      console.log("[Sync] Upserting Categories...");
-      const cats = Array.from(categoriesMap.values());
-
-      // Roots
-      const roots = cats.filter((c) => !c.parentSlug);
-      if (roots.length > 0) {
-        // Batch categories upsert too
-        const CAT_CHUNK = 50;
-        for (let i = 0; i < roots.length; i += CAT_CHUNK) {
-          await supabase.from("categories").upsert(
-            roots.slice(i, i + CAT_CHUNK).map((c) => ({
-              slug: c.slug,
-              nombre: c.name,
-              parent_id: null,
-              updated_at: new Date().toISOString(),
-            })),
-            { onConflict: "slug" },
-          );
-        }
-      }
-
-      // Childs
-      const childs = cats.filter((c) => c.parentSlug);
-      if (childs.length > 0) {
-        const { data: catData } = await supabase
-          .from("categories")
-          .select("id, slug");
-        const catIdMap = new Map(catData?.map((x: any) => [x.slug, x.id]));
-
-        const childRecords = childs.map((c) => ({
-          slug: c.slug,
-          nombre: c.name,
-          parent_id: catIdMap.get(c.parentSlug) || null,
-          updated_at: new Date().toISOString(),
-        }));
-
-        const CAT_CHUNK = 50;
-        for (let i = 0; i < childRecords.length; i += CAT_CHUNK) {
-          await supabase
-            .from("categories")
-            .upsert(childRecords.slice(i, i + CAT_CHUNK), {
-              onConflict: "slug",
-            });
-        }
-      }
-
-      // 5. Cleanup
-      console.log("[Sync] Cleaning up stale products...");
-      const threshold = new Date(Date.now() - 1000 * 60 * 60).toISOString();
-      await supabase
-        .from("products_data")
-        .delete({ count: "exact" })
-        .lt("updated_at", threshold);
-
-      result = { success: true, count: upserted };
-    } // End else products
+    }
 
     console.log("[Sync] Done.");
     return new Response(JSON.stringify(result), {
       headers: { "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Sync] Fatal:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
