@@ -220,14 +220,19 @@ services:
     container_name: supabase-edge-runtime
     image: supabase/edge-runtime:v1.54.3
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./supabase/functions:/home/deno/functions:Z
     environment:
+      JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-      POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
-      JWT_SECRET: ${JWT_SECRET}
-    ports:
-      - "54321:54321" # Expose function port?
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+      VERIFY_JWT: "false"
+    command: ["start", "--main-service", "/home/deno/functions/main"]
     networks:
       - supabasenet
 

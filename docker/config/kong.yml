@@ -39,3 +39,11 @@ services:
         paths:
           - /pg
         strip_path: false
+
+  - name: functions
+    url: http://supabase-edge-runtime:9000
+    routes:
+      - name: functions
+        paths:
+          - /functions/v1
+        strip_path: true
