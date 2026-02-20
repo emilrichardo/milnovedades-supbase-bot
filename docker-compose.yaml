@@ -243,7 +243,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/payload_db
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:-your-payload-secret}
       NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
