@@ -18,5 +18,8 @@ jobs:
           script: |
             cd ${{ secrets.PROJECT_PATH }}
             git pull origin main
+            chmod +x docker/volumes/db/init/*.sh
             docker compose up -d --build
             docker image prune -f
+            docker exec supabase-db /docker-entrypoint-initdb.d/01-setup.sh
+            docker restart supabase-auth supabase-rest payload-cms
