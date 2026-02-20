@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS public.sync_config (
 -- Insert default configurations
 INSERT INTO public.sync_config (collection, cron_expression, is_active) VALUES
     ('clients', '0 0 * * *', true),       -- Daily at midnight
-    ('products', '0 2 * * *', true),      -- Daily at 2 AM
-    ('comprobantes', '0 3 * * *', true)   -- Daily at 3 AM (Updates from last sync to today)
+    ('products', '0 */4 * * *', true),      -- Every 4 hours
+    ('comprobantes', '0 */6 * * *', true)   -- Every 6 hours
 ON CONFLICT (collection) DO UPDATE
 SET cron_expression = EXCLUDED.cron_expression;
 

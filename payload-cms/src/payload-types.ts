@@ -87,12 +87,8 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {
-    'sincronizacion-aleph': SincronizacionAleph;
-  };
-  globalsSelect: {
-    'sincronizacion-aleph': SincronizacionAlephSelect<false> | SincronizacionAlephSelect<true>;
-  };
+  globals: {};
+  globalsSelect: {};
   locale: null;
   user: User;
   jobs: {
@@ -315,36 +311,6 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sincronizacion-aleph".
- */
-export interface SincronizacionAleph {
-  id: number;
-  products_active?: boolean | null;
-  products_cron: string;
-  clients_active?: boolean | null;
-  clients_cron: string;
-  comprobantes_active?: boolean | null;
-  comprobantes_cron: string;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sincronizacion-aleph_select".
- */
-export interface SincronizacionAlephSelect<T extends boolean = true> {
-  products_active?: T;
-  products_cron?: T;
-  clients_active?: T;
-  clients_cron?: T;
-  comprobantes_active?: T;
-  comprobantes_cron?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

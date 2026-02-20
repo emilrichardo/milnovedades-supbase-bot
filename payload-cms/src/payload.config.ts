@@ -7,7 +7,6 @@ import sharp from 'sharp'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
-import { SyncConfig } from './globals/SyncConfig'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -20,7 +19,6 @@ export default buildConfig({
     },
   },
   collections: [Users, Media],
-  globals: [SyncConfig],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -30,6 +28,7 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URL || '',
     },
+    schemaName: 'payload',
     push: false,
   }),
   sharp,
