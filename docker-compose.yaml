@@ -238,6 +238,12 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
       VERIFY_JWT: "false"
+      ALEPH_API_URL: ${ALEPH_API_URL}
+      ALEPH_API_KEY: ${ALEPH_API_KEY}
+      ALEPH_CLIENT_ID: ${ALEPH_CLIENT_ID}
+      WC_API_URL: ${WC_API_URL}
+      WC_CONSUMER_KEY: ${WC_CONSUMER_KEY}
+      WC_CONSUMER_SECRET: ${WC_CONSUMER_SECRET}
     command: ["start", "--main-service", "/home/deno/functions/main"]
     networks:
       - supabasenet
