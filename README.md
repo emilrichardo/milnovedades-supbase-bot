@@ -132,59 +132,54 @@ npx supabase functions deploy sync-aleph
 
 ---
 
-## API Reference
+## Scripts and Testing
 
-The `sync-aleph` Edge Function supports multiple sync modes via the `type` query parameter.
+We have configured several npm scripts in `package.json` to make it easier to test the functions both locally in your Mac, and against your remote VPS (Production).
 
-### 1. Sync Products (Default)
+### 1. Sync All or Individual Entities
 
-Fetches all products, updates stock and prices, and syncs categories.
-
-```bash
-source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=products" \
-  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
-  -H "Content-Type: application/json"
-```
-
-### 2. Sync Clients
-
-Fetches client updates from Aleph.
+To test synchronization logic in your **Local Dev Environment**:
 
 ```bash
-source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=clients" \
-  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
-  -H "Content-Type: application/json"
+npm run sync:local:products
+npm run sync:local:clients
+npm run sync:local:comprobantes
 ```
 
-### 3. Sync Comprobantes
-
-Fetches vouchers (invoices, orders) from Aleph.
-
-**Standard Sync (Last 30 days or auto-detected):**
+To trigger synchronization directly into your **VPS (Production)**:
 
 ```bash
-source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=comprobantes" \
-  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
-  -H "Content-Type: application/json"
+npm run sync:prod:products
+npm run sync:prod:clients
+npm run sync:prod:comprobantes
 ```
 
-**Custom Date Range (dd-mm-yyyy):**
+### 2. Test Client Purchases (`get-client-purchases`)
+
+The `get-client-purchases` Edge Function fetches the complete purchase history for a specific client (e.g. `cliente_id=2519`), including all voucher items (`comprobantes_items`).
+
+To test **locally**:
 
 ```bash
-source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/sync-aleph?type=comprobantes&fechadesde=01-01-2025&fechahasta=10-01-2025" \
-  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
-  -H "Content-Type: application/json"
+npm run test:purchases:local
 ```
 
-### 4. Fetch Client Purchases
-
-Fetches the complete purchase history for a specific client, including all voucher items (`comprobantes_items`).
+To test against your **Production VPS**:
 
 ```bash
-source .env.local && curl -X POST "${SUPABASE_PUBLIC_URL:-http://127.0.0.1:54321}/functions/v1/get-client-purchases?cliente_id=2519" \
-  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
-  -H "Content-Type: application/json"
+npm run test:purchases:prod
 ```
+
+---
+
+## Important Note on Edge Functions in Production (VPS)
+
+> **⚠️ "Failed to retrieve edge functions"**
+
+When using the self-hosted version of Supabase Studio (the panel in your VPS at `163.176.54.116:8000`), when you click on the "Edge Functions" tab, you will **always** see the warning:
+`Failed to retrieve edge functions. Local functions can be found at supabase/functions folder.`
+
+**This is normal and expected.** The Supabase Studio UI tries to connect to the commercial Supabase Cloud API to list functions. Since you are running a private Self-Hosted cloud, that API does not exist. However, the functions **are running properly in the background** via Docker (Deno Edge Runtime). You must use the `npm run sync:prod:...` commands or HTTP requests to interact with them as the visual explorer is not supported in self-hosted setups without cloud accounts.
 
 ---
 
