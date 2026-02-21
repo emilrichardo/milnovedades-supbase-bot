@@ -128,6 +128,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
     environment:
       PORT: 4000
       DB_HOST: db
@@ -136,13 +140,15 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: postgres
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      DB_ENC_KEY: ${REALTIME_ENC_KEY}
+      DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${JWT_SECRET}
-      REPLICATION_MODE: RLS
-      REPLICATION_POLL_INTERVAL: 100
-      SECURE_CHANNELS: "true"
-      SLOT_NAME: supabase_realtime_rls
-      TEMPORARY_SLOT: "true"
+      SECRET_KEY_BASE: "08a956fba5ba183dfaa2bd7a1c2c00113b31e9d86fdf4b06f60c09340473be83"
+      ERL_AFLAGS: "-proto_dist inet_tcp"
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
     networks:
       - supabasenet
 

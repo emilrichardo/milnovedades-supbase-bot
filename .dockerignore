@@ -1,0 +1,22 @@
+# Docker volumes (contain runtime data owned by root, not needed for builds)
+docker/volumes/
+
+# Git
+.git
+.github
+
+# Node modules (installed inside the container)
+node_modules
+
+# IDE / Editor
+.vscode
+.idea
+
+# Agents config
+.agents
+
+# Logs
+*.log
+
+# Payload CMS (has its own build context)
+payload-cms
