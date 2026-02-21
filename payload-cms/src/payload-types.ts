@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    agentes: Agente;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,6 +79,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    agentes: AgentesSelect<false> | AgentesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -87,8 +89,12 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    configuraciones: Configuracione;
+  };
+  globalsSelect: {
+    configuraciones: ConfiguracionesSelect<false> | ConfiguracionesSelect<true>;
+  };
   locale: null;
   user: User;
   jobs: {
@@ -160,6 +166,35 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "agentes".
+ */
+export interface Agente {
+  id: number;
+  nombre: string;
+  rol: string;
+  es_subagente?: boolean | null;
+  agente_padre?: (number | null) | Agente;
+  prompt_sistema: string;
+  temperatura?: number | null;
+  personalidad?: string | null;
+  accesos_tablas?: ('productos' | 'clientes' | 'ventas' | 'inventario' | 'configuraciones')[] | null;
+  modelo:
+    | 'gpt-4o'
+    | 'gpt-4o-mini'
+    | 'gpt-3.5-turbo'
+    | 'claude-3-opus'
+    | 'claude-3-5-sonnet'
+    | 'gemini-1.5-pro'
+    | 'gemini-1.5-flash';
+  /**
+   * Dejar en blanco para usar la API Key por defecto definida en variables de entorno.
+   */
+  api_key?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -189,6 +224,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'agentes';
+        value: number | Agente;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -274,6 +313,24 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "agentes_select".
+ */
+export interface AgentesSelect<T extends boolean = true> {
+  nombre?: T;
+  rol?: T;
+  es_subagente?: T;
+  agente_padre?: T;
+  prompt_sistema?: T;
+  temperatura?: T;
+  personalidad?: T;
+  accesos_tablas?: T;
+  modelo?: T;
+  api_key?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -311,6 +368,56 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "configuraciones".
+ */
+export interface Configuracione {
+  id: number;
+  nombre_empresa: string;
+  datos_contacto?: {
+    email?: string | null;
+    telefono?: string | null;
+    direccion?: string | null;
+  };
+  informacion_marca?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  logo?: (number | null) | Media;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "configuraciones_select".
+ */
+export interface ConfiguracionesSelect<T extends boolean = true> {
+  nombre_empresa?: T;
+  datos_contacto?:
+    | T
+    | {
+        email?: T;
+        telefono?: T;
+        direccion?: T;
+      };
+  informacion_marca?: T;
+  logo?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
