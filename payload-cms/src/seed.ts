@@ -7,19 +7,35 @@ async function seed() {
 
     console.log('--- Seed Starting ---')
 
-    // 1. Configuraciones Global
+    // 1. Informacion General Global
     await payload.updateGlobal({
-      slug: 'configuraciones',
+      slug: 'informacion_general',
       data: {
         nombre_empresa: 'Las Mil Novedades',
         datos_contacto: {
           email: 'contacto@lasmilnovedades.com',
           telefono: '',
-          direccion: 'Sucursal Siglo 19: Mza 30 lote 29, Santiago del Estero | Sucursal La Banda: Calle Besares N° 743 | Mayorista Zanjón: Camino del medio, Zona UNSE.',
         },
-      } as any, // bypassing strict types for globals if they complain about richText
+        sucursales: [
+          {
+            nombre: 'Sucursal Siglo 19',
+            direccion: 'Mza 30 lote 29, Santiago del Estero.',
+            horarios_atencion: 'Lunes a Sábado de 9:00 a 13:00 y de 17:30 a 21:30 hs.',
+          },
+          {
+            nombre: 'Sucursal La Banda',
+            direccion: 'Calle Besares N° 743.',
+            horarios_atencion: 'Lunes a Sábado horario comercial.',
+          },
+          {
+            nombre: 'Mayorista Zanjón',
+            direccion: 'Camino del medio, Zona UNSE.',
+            horarios_atencion: 'Consultar horarios en WhatsApp.',
+          }
+        ]
+      } as any,
     })
-    console.log('✅ Configuraciones globales actualizadas.')
+    console.log('✅ Información General global actualizada.')
 
     // 2. Agentes
     const agentes = [
@@ -30,7 +46,7 @@ async function seed() {
         prompt_sistema: 'Eres el asistente virtual de Las Mil Novedades. Tu objetivo es ayudar a los clientes con sus compras, informarles sobre compras mayoristas (mínimo $80.000 para envíos web, compras presenciales sin mínimo a precio mayorista en sucursales) y brindar soporte general de productos y sucursales.',
         temperatura: 0.7,
         personalidad: 'Amable, servicial, conciso.',
-        accesos_tablas: ['productos', 'clientes', 'configuraciones'],
+        accesos_tablas: ['productos', 'clientes', 'informacion_general'],
         modelo: 'gpt-4o-mini',
       },
       {

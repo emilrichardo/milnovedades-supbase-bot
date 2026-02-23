@@ -90,10 +90,10 @@ export interface Config {
   };
   fallbackLocale: null;
   globals: {
-    configuraciones: Configuracione;
+    informacion_general: InformacionGeneral;
   };
   globalsSelect: {
-    configuraciones: ConfiguracionesSelect<false> | ConfiguracionesSelect<true>;
+    informacion_general: InformacionGeneralSelect<false> | InformacionGeneralSelect<true>;
   };
   locale: null;
   user: User;
@@ -177,7 +177,7 @@ export interface Agente {
   prompt_sistema: string;
   temperatura?: number | null;
   personalidad?: string | null;
-  accesos_tablas?: ('productos' | 'clientes' | 'ventas' | 'inventario' | 'configuraciones')[] | null;
+  accesos_tablas?: ('productos' | 'clientes' | 'ventas' | 'inventario' | 'informacion_general')[] | null;
   modelo:
     | 'gpt-4o'
     | 'gpt-4o-mini'
@@ -371,16 +371,24 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "configuraciones".
+ * via the `definition` "informacion_general".
  */
-export interface Configuracione {
+export interface InformacionGeneral {
   id: number;
   nombre_empresa: string;
   datos_contacto?: {
     email?: string | null;
     telefono?: string | null;
-    direccion?: string | null;
   };
+  sucursales?:
+    | {
+        nombre: string;
+        direccion: string;
+        horarios_atencion?: string | null;
+        telefono_sucursal?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   informacion_marca?: {
     root: {
       type: string;
@@ -402,16 +410,24 @@ export interface Configuracione {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "configuraciones_select".
+ * via the `definition` "informacion_general_select".
  */
-export interface ConfiguracionesSelect<T extends boolean = true> {
+export interface InformacionGeneralSelect<T extends boolean = true> {
   nombre_empresa?: T;
   datos_contacto?:
     | T
     | {
         email?: T;
         telefono?: T;
+      };
+  sucursales?:
+    | T
+    | {
+        nombre?: T;
         direccion?: T;
+        horarios_atencion?: T;
+        telefono_sucursal?: T;
+        id?: T;
       };
   informacion_marca?: T;
   logo?: T;

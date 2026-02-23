@@ -65,7 +65,7 @@ export const Agentes: CollectionConfig = {
         { label: 'Clientes', value: 'clientes' },
         { label: 'Ventas', value: 'ventas' },
         { label: 'Inventario', value: 'inventario' },
-        { label: 'Configuraciones', value: 'configuraciones' },
+        { label: 'Información General', value: 'informacion_general' },
       ],
     },
     {

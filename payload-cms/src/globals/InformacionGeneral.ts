@@ -1,7 +1,8 @@
 import type { GlobalConfig } from 'payload'
 
-export const Configuraciones: GlobalConfig = {
-  slug: 'configuraciones',
+export const InformacionGeneral: GlobalConfig = {
+  slug: 'informacion_general',
+  label: 'Información General',
   access: {
     read: () => true,
   },
@@ -15,7 +16,7 @@ export const Configuraciones: GlobalConfig = {
     {
       name: 'datos_contacto',
       type: 'group',
-      label: 'Datos de Contacto',
+      label: 'Datos de Contacto Principales',
       fields: [
         {
           name: 'email',
@@ -25,14 +26,42 @@ export const Configuraciones: GlobalConfig = {
         {
           name: 'telefono',
           type: 'text',
-          label: 'Número de Teléfono',
+          label: 'Número de Teléfono Principal',
+        },
+      ],
+    },
+    {
+      name: 'sucursales',
+      type: 'array',
+      label: 'Sucursales',
+      labels: {
+        singular: 'Sucursal',
+        plural: 'Sucursales',
+      },
+      fields: [
+        {
+          name: 'nombre',
+          type: 'text',
+          required: true,
+          label: 'Nombre de la Sucursal',
         },
         {
           name: 'direccion',
           type: 'textarea',
+          required: true,
           label: 'Dirección Física',
         },
-      ],
+        {
+          name: 'horarios_atencion',
+          type: 'textarea',
+          label: 'Horarios de Atención',
+        },
+        {
+          name: 'telefono_sucursal',
+          type: 'text',
+          label: 'Teléfono de la Sucursal (Opcional)',
+        }
+      ]
     },
     {
       name: 'informacion_marca',
