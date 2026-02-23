@@ -63,15 +63,34 @@ export const Agentes: CollectionConfig = {
     },
     {
       name: 'accesos_tablas',
-      type: 'select',
-      hasMany: true,
+      type: 'array',
       label: 'Acceso a Tablas/Datos',
-      options: [
-        { label: 'Productos', value: 'productos' },
-        { label: 'Clientes', value: 'clientes' },
-        { label: 'Ventas', value: 'ventas' },
-        { label: 'Inventario', value: 'inventario' },
-        { label: 'Información General', value: 'informacion_general' },
+      fields: [
+        {
+          name: 'tabla',
+          type: 'select',
+          label: 'Tabla',
+          required: true,
+          options: [
+            { label: 'Productos', value: 'productos' },
+            { label: 'Clientes', value: 'clientes' },
+            { label: 'Ventas', value: 'ventas' },
+            { label: 'Inventario', value: 'inventario' },
+            { label: 'Información General', value: 'informacion_general' },
+          ],
+        },
+        {
+          name: 'permiso',
+          type: 'select',
+          label: 'Nivel de Permiso',
+          required: true,
+          defaultValue: 'lectura',
+          options: [
+            { label: 'Solo Lectura', value: 'lectura' },
+            { label: 'Solo Escritura', value: 'escritura' },
+            { label: 'Lectura y Escritura', value: 'lectura_escritura' },
+          ],
+        },
       ],
     },
     {

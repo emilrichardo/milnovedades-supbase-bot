@@ -5,6 +5,121 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Tool definitions para productos (lectura)
+const toolsProductosLectura = [
+  {
+    type: "function",
+    function: {
+      name: "buscar_productos",
+      description: "Busca productos en el inventario por código, nombre o categoría",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { 
+            type: "string", 
+            description: "Texto a buscar en código, nombre o rubro del producto" 
+          },
+          limite: { 
+            type: "number", 
+            description: "Cantidad máxima de resultados a devolver", 
+            default: 10 
+          }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "obtener_producto",
+      description: "Obtiene información detallada de un producto específico por código",
+      parameters: {
+        type: "object",
+        properties: {
+          codigo: { 
+            type: "string", 
+            description: "Código del producto a buscar" 
+          }
+        },
+        required: ["codigo"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "listar_categorias",
+      description: "Lista todas las categorías de productos disponibles",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
+    }
+  }
+];
+
+// Funciones de consulta a la base de datos
+async function buscar_productos(query: string, limite: number = 10, supabasePublic: any) {
+  const { data, error } = await supabasePublic
+    .from('products_data')
+    .select('codigo_product, nombre, precio_minorista, precio_mayorista, precio_emprendedor, rubro, subrubro, stock_json')
+    .or(`codigo_product.ilike.%${query}%,nombre.ilike.%${query}%,rubro.ilike.%${query}%`)
+    .limit(limite);
+  
+  if (error) throw new Error(`Error buscando productos: ${error.message}`);
+  return data || [];
+}
+
+async function obtener_producto(codigo: string, supabasePublic: any) {
+  const { data, error } = await supabasePublic
+    .from('products_data')
+    .select('*')
+    .eq('codigo_product', codigo)
+    .maybeSingle();
+  
+  if (error) throw new Error(`Error obteniendo producto: ${error.message}`);
+  return data;
+}
+
+async function listar_categorias(supabasePublic: any) {
+  const { data, error } = await supabasePublic
+    .from('categories')
+    .select('nombre, slug')
+    .order('nombre');
+  
+  if (error) throw new Error(`Error listando categorías: ${error.message}`);
+  return data || [];
+}
+
+// Ejecutar tool según el nombre
+async function ejecutarTool(toolName: string, args: any, supabasePublic: any) {
+  switch (toolName) {
+    case 'buscar_productos':
+      return await buscar_productos(args.query, args.limite, supabasePublic);
+    case 'obtener_producto':
+      return await obtener_producto(args.codigo, supabasePublic);
+    case 'listar_categorias':
+      return await listar_categorias(supabasePublic);
+    default:
+      throw new Error(`Tool no reconocida: ${toolName}`);
+  }
+}
+
+// Generar tools según permisos del agente
+function generarTools(permisos: Record<string, string>) {
+  const tools: any[] = [];
+  
+  // Productos - Lectura
+  if (permisos.productos && (permisos.productos.includes('lectura') || permisos.productos === 'lectura_escritura')) {
+    tools.push(...toolsProductosLectura);
+  }
+  
+  // TODO: Agregar más tablas aquí (clientes, ventas, etc.)
+  
+  return tools;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -54,7 +169,35 @@ Deno.serve(async (req) => {
       throw new Error("No agent configuration could be loaded");
     }
 
-    // 2. Prepare Messages
+    // 2. Get Agent Permissions
+    console.log("[Chat] Fetching agent permissions...");
+    const { data: accesosData, error: accesosError } = await supabase
+      .from('agentes_accesos_tablas')
+      .select('value, permiso')
+      .eq('parent_id', agente.id);
+
+    if (accesosError) {
+      console.warn("Error fetching permissions:", accesosError.message);
+    }
+
+    // Mapear permisos a estructura usable
+    const permisos: Record<string, string> = {};
+    accesosData?.forEach(acc => {
+      permisos[acc.value] = acc.permiso;
+    });
+
+    console.log("[Chat] Agent permissions:", permisos);
+
+    // Generar tools disponibles según permisos
+    const availableTools = generarTools(permisos);
+    console.log("[Chat] Available tools:", availableTools.map(t => t.function.name));
+
+    // Crear cliente Supabase para schema public (consultas de datos)
+    const supabasePublic = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      db: { schema: 'public' }
+    });
+
+    // 3. Prepare Messages
     const messages: Array<{role: string, content: string}> = [
       {
         role: 'system',
@@ -75,34 +218,93 @@ Deno.serve(async (req) => {
 
     messages.push({ role: 'user', content: text });
 
-    // 3. Call Model Provider
+    // 4. Call Model Provider with Tools Support
     const model = agente.modelo || 'gpt-4o-mini';
     const temperatura = typeof agente.temperatura === 'number' ? agente.temperatura : 0.7;
     let responseText = "";
 
     if (model.startsWith('gpt')) {
-      // OpenAI
+      // OpenAI with Tools Support
       const apiKey = agente.api_key || Deno.env.get("OPENAI_API_KEY");
       if (!apiKey) throw new Error("Missing OPENAI_API_KEY config");
 
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
+      // Loop para manejar tool calls
+      let currentMessages = [...messages];
+      let maxIterations = 5; // Prevenir loops infinitos
+      let iteration = 0;
+
+      while (iteration < maxIterations) {
+        const requestBody: any = {
           model: model,
-          messages: messages,
+          messages: currentMessages,
           temperature: temperatura
-        })
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || "OpenAI API Error");
-      responseText = json.choices[0].message.content;
+        };
+
+        // Agregar tools si están disponibles
+        if (availableTools.length > 0) {
+          requestBody.tools = availableTools;
+          requestBody.tool_choice = "auto";
+        }
+
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error?.message || "OpenAI API Error");
+
+        const choice = json.choices[0];
+        const message = choice.message;
+
+        // Si no hay tool calls, usar la respuesta directa
+        if (!message.tool_calls || message.tool_calls.length === 0) {
+          responseText = message.content;
+          break;
+        }
+
+        // Agregar el mensaje del asistente con tool calls
+        currentMessages.push(message);
+
+        // Ejecutar cada tool call
+        for (const toolCall of message.tool_calls) {
+          try {
+            const toolName = toolCall.function.name;
+            const toolArgs = JSON.parse(toolCall.function.arguments);
+            
+            console.log(`[Chat] Executing tool: ${toolName} with args:`, toolArgs);
+            
+            const toolResult = await ejecutarTool(toolName, toolArgs, supabasePublic);
+            
+            // Agregar resultado como mensaje de tool
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(toolResult)
+            });
+          } catch (error) {
+            console.error(`[Chat] Error executing tool ${toolCall.function.name}:`, error);
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ error: error.message })
+            });
+          }
+        }
+
+        iteration++;
+      }
+
+      if (iteration >= maxIterations) {
+        throw new Error("Maximum tool execution iterations reached");
+      }
 
     } else if (model.includes('claude')) {
-      // Anthropic
+      // Anthropic (sin tools por ahora)
       const apiKey = agente.api_key || Deno.env.get("ANTHROPIC_API_KEY");
       if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY config");
 
@@ -111,6 +313,15 @@ Deno.serve(async (req) => {
         content: m.content
       }));
       const systemMessage = messages.find(m => m.role === 'system')?.content || '';
+
+      // Agregar información sobre tools disponibles al system message si existen
+      let enhancedSystemMessage = systemMessage;
+      if (availableTools.length > 0) {
+        const toolsInfo = availableTools.map(t => 
+          `- ${t.function.name}: ${t.function.description}`
+        ).join('\n');
+        enhancedSystemMessage += `\n\nHerramientas disponibles:\n${toolsInfo}\n\nNOTA: Para usar estas herramientas, menciona que necesitas buscar información específica y yo te ayudaré.`;
+      }
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -121,7 +332,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           model: model,
-          system: systemMessage,
+          system: enhancedSystemMessage,
           messages: claudeMessages,
           temperature: temperatura,
           max_tokens: 1024
@@ -132,7 +343,7 @@ Deno.serve(async (req) => {
       responseText = json.content[0].text;
 
     } else if (model.includes('gemini')) {
-      // Google Gemini
+      // Google Gemini (sin tools por ahora)
       const apiKey = agente.api_key || Deno.env.get("GEMINI_API_KEY");
       if (!apiKey) throw new Error("Missing GEMINI_API_KEY config");
 
@@ -142,7 +353,15 @@ Deno.serve(async (req) => {
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }]
       }));
-      const systemInstruction = messages.find(m => m.role === 'system')?.content;
+      let systemInstruction = messages.find(m => m.role === 'system')?.content;
+
+      // Agregar información sobre tools disponibles al system instruction si existen
+      if (availableTools.length > 0 && systemInstruction) {
+        const toolsInfo = availableTools.map(t => 
+          `- ${t.function.name}: ${t.function.description}`
+        ).join('\n');
+        systemInstruction += `\n\nHerramientas disponibles:\n${toolsInfo}\n\nNOTA: Para usar estas herramientas, menciona que necesitas buscar información específica y yo te ayudaré.`;
+      }
 
       const body: any = {
         contents,
