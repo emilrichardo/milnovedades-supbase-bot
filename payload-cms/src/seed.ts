@@ -42,6 +42,7 @@ async function seed() {
       {
         nombre: 'Atención al Cliente',
         rol: 'Soporte y Ventas',
+        is_main: true,
         es_subagente: false,
         prompt_sistema: 'Eres el asistente virtual de Las Mil Novedades. Tu objetivo es ayudar a los clientes con sus compras, informarles sobre compras mayoristas (mínimo $80.000 para envíos web, compras presenciales sin mínimo a precio mayorista en sucursales) y brindar soporte general de productos y sucursales.',
         temperatura: 0.7,

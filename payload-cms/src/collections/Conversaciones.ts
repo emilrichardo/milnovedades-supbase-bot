@@ -5,6 +5,9 @@ export const Conversaciones: CollectionConfig = {
   admin: {
     useAsTitle: 'id_consulta',
   },
+  access: {
+    read: () => true,
+  },
   fields: [
     {
       name: 'id_consulta',

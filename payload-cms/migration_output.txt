@@ -1,0 +1,441 @@
+[14:57:15] [33mWARN[39m: [36mNo email adapter provided. Email will be written to console. More info at https://payloadcms.com/docs/email/overview.[39m
+[14:57:15] [32mINFO[39m: [36mReading migration files from /home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/src/migrations[39m
+[?25l[2K[1G[36m?[39m [1mIt looks like you've run Payload in dev mode, meaning you've dynamically pushed changes to your database.
+
+If you'd like to run migrations, data loss will occur. Would you like to proceed?[22m [90m›[39m [90m(y/N)[39m[2K[1G[2K[1G[32m✔[39m [1mIt looks like you've run Payload in dev mode, meaning you've dynamically pushed changes to your database.
+
+If you'd like to run migrations, data loss will occur. Would you like to proceed?[22m [90m…[39m yes
+[?25h[14:57:15] [32mINFO[39m: [36mMigrating: 20260223_144702_init[39m
+[14:57:15] [31mERROR[39m: [36mError running migration 20260223_144702_init Failed query: 
+   CREATE TYPE "payload"."enum_agentes_accesos_tablas" AS ENUM('productos', 'clientes', 'ventas', 'inventario', 'informacion_general');
+  CREATE TYPE "payload"."enum_agentes_modelo" AS ENUM('gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo', 'claude-3-opus', 'claude-3-5-sonnet', 'gemini-1.5-pro', 'gemini-1.5-flash');
+  CREATE TABLE "payload"."users_sessions" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"created_at" timestamp(3) with time zone,
+  	"expires_at" timestamp(3) with time zone NOT NULL
+  );
+  
+  CREATE TABLE "payload"."users" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"email" varchar NOT NULL,
+  	"reset_password_token" varchar,
+  	"reset_password_expiration" timestamp(3) with time zone,
+  	"salt" varchar,
+  	"hash" varchar,
+  	"login_attempts" numeric DEFAULT 0,
+  	"lock_until" timestamp(3) with time zone
+  );
+  
+  CREATE TABLE "payload"."media" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"alt" varchar NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"url" varchar,
+  	"thumbnail_u_r_l" varchar,
+  	"filename" varchar,
+  	"mime_type" varchar,
+  	"filesize" numeric,
+  	"width" numeric,
+  	"height" numeric,
+  	"focal_x" numeric,
+  	"focal_y" numeric
+  );
+  
+  CREATE TABLE "payload"."agentes_accesos_tablas" (
+  	"order" integer NOT NULL,
+  	"parent_id" integer NOT NULL,
+  	"value" "payload"."enum_agentes_accesos_tablas",
+  	"id" serial PRIMARY KEY NOT NULL
+  );
+  
+  CREATE TABLE "payload"."agentes" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"nombre" varchar NOT NULL,
+  	"is_main" boolean DEFAULT false,
+  	"rol" varchar NOT NULL,
+  	"es_subagente" boolean DEFAULT false,
+  	"agente_padre_id" integer,
+  	"prompt_sistema" varchar NOT NULL,
+  	"temperatura" numeric DEFAULT 0.7,
+  	"personalidad" varchar,
+  	"modelo" "payload"."enum_agentes_modelo" DEFAULT 'gpt-4o' NOT NULL,
+  	"api_key" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload"."conversaciones" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"id_consulta" varchar NOT NULL,
+  	"id_cliente" varchar NOT NULL,
+  	"resumen" varchar,
+  	"documentos" jsonb,
+  	"actividades" jsonb,
+  	"notas" varchar,
+  	"calendario" timestamp(3) with time zone,
+  	"tipo_consulta" varchar,
+  	"estado_consulta" varchar,
+  	"producto_consultado" varchar,
+  	"producto_ofrecido" varchar,
+  	"temperatura" varchar,
+  	"estado_embudo" varchar,
+  	"metodo_pago" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload"."payload_kv" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"key" varchar NOT NULL,
+  	"data" jsonb NOT NULL
+  );
+  
+  CREATE TABLE "payload"."payload_locked_documents" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"global_slug" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload"."payload_locked_documents_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"users_id" integer,
+  	"media_id" integer,
+  	"agentes_id" integer,
+  	"conversaciones_id" integer
+  );
+  
+  CREATE TABLE "payload"."payload_preferences" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"key" varchar,
+  	"value" jsonb,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload"."payload_preferences_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"users_id" integer
+  );
+  
+  CREATE TABLE "payload"."payload_migrations" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar,
+  	"batch" numeric,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload"."informacion_general_sucursales" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"nombre" varchar NOT NULL,
+  	"direccion" varchar NOT NULL,
+  	"horarios_atencion" varchar,
+  	"telefono_sucursal" varchar
+  );
+  
+  CREATE TABLE "payload"."informacion_general" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"nombre_empresa" varchar NOT NULL,
+  	"datos_contacto_email" varchar,
+  	"datos_contacto_telefono" varchar,
+  	"informacion_marca" jsonb,
+  	"logo_id" integer,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
+  ALTER TABLE "payload"."users_sessions" ADD CONSTRAINT "users_sessions_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "payload"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."agentes_accesos_tablas" ADD CONSTRAINT "agentes_accesos_tablas_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "payload"."agentes"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."agentes" ADD CONSTRAINT "agentes_agente_padre_id_agentes_id_fk" FOREIGN KEY ("agente_padre_id") REFERENCES "payload"."agentes"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "payload"."payload_locked_documents"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "payload"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_media_fk" FOREIGN KEY ("media_id") REFERENCES "payload"."media"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_agentes_fk" FOREIGN KEY ("agentes_id") REFERENCES "payload"."agentes"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_conversaciones_fk" FOREIGN KEY ("conversaciones_id") REFERENCES "payload"."conversaciones"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "payload"."payload_preferences"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "payload"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."informacion_general_sucursales" ADD CONSTRAINT "informacion_general_sucursales_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "payload"."informacion_general"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload"."informacion_general" ADD CONSTRAINT "informacion_general_logo_id_media_id_fk" FOREIGN KEY ("logo_id") REFERENCES "payload"."media"("id") ON DELETE set null ON UPDATE no action;
+  CREATE INDEX "users_sessions_order_idx" ON "payload"."users_sessions" USING btree ("_order");
+  CREATE INDEX "users_sessions_parent_id_idx" ON "payload"."users_sessions" USING btree ("_parent_id");
+  CREATE INDEX "users_updated_at_idx" ON "payload"."users" USING btree ("updated_at");
+  CREATE INDEX "users_created_at_idx" ON "payload"."users" USING btree ("created_at");
+  CREATE UNIQUE INDEX "users_email_idx" ON "payload"."users" USING btree ("email");
+  CREATE INDEX "media_updated_at_idx" ON "payload"."media" USING btree ("updated_at");
+  CREATE INDEX "media_created_at_idx" ON "payload"."media" USING btree ("created_at");
+  CREATE UNIQUE INDEX "media_filename_idx" ON "payload"."media" USING btree ("filename");
+  CREATE INDEX "agentes_accesos_tablas_order_idx" ON "payload"."agentes_accesos_tablas" USING btree ("order");
+  CREATE INDEX "agentes_accesos_tablas_parent_idx" ON "payload"."agentes_accesos_tablas" USING btree ("parent_id");
+  CREATE INDEX "agentes_agente_padre_idx" ON "payload"."agentes" USING btree ("agente_padre_id");
+  CREATE INDEX "agentes_updated_at_idx" ON "payload"."agentes" USING btree ("updated_at");
+  CREATE INDEX "agentes_created_at_idx" ON "payload"."agentes" USING btree ("created_at");
+  CREATE INDEX "conversaciones_updated_at_idx" ON "payload"."conversaciones" USING btree ("updated_at");
+  CREATE INDEX "conversaciones_created_at_idx" ON "payload"."conversaciones" USING btree ("created_at");
+  CREATE UNIQUE INDEX "payload_kv_key_idx" ON "payload"."payload_kv" USING btree ("key");
+  CREATE INDEX "payload_locked_documents_global_slug_idx" ON "payload"."payload_locked_documents" USING btree ("global_slug");
+  CREATE INDEX "payload_locked_documents_updated_at_idx" ON "payload"."payload_locked_documents" USING btree ("updated_at");
+  CREATE INDEX "payload_locked_documents_created_at_idx" ON "payload"."payload_locked_documents" USING btree ("created_at");
+  CREATE INDEX "payload_locked_documents_rels_order_idx" ON "payload"."payload_locked_documents_rels" USING btree ("order");
+  CREATE INDEX "payload_locked_documents_rels_parent_idx" ON "payload"."payload_locked_documents_rels" USING btree ("parent_id");
+  CREATE INDEX "payload_locked_documents_rels_path_idx" ON "payload"."payload_locked_documents_rels" USING btree ("path");
+  CREATE INDEX "payload_locked_documents_rels_users_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("users_id");
+  CREATE INDEX "payload_locked_documents_rels_media_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("media_id");
+  CREATE INDEX "payload_locked_documents_rels_agentes_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("agentes_id");
+  CREATE INDEX "payload_locked_documents_rels_conversaciones_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("conversaciones_id");
+  CREATE INDEX "payload_preferences_key_idx" ON "payload"."payload_preferences" USING btree ("key");
+  CREATE INDEX "payload_preferences_updated_at_idx" ON "payload"."payload_preferences" USING btree ("updated_at");
+  CREATE INDEX "payload_preferences_created_at_idx" ON "payload"."payload_preferences" USING btree ("created_at");
+  CREATE INDEX "payload_preferences_rels_order_idx" ON "payload"."payload_preferences_rels" USING btree ("order");
+  CREATE INDEX "payload_preferences_rels_parent_idx" ON "payload"."payload_preferences_rels" USING btree ("parent_id");
+  CREATE INDEX "payload_preferences_rels_path_idx" ON "payload"."payload_preferences_rels" USING btree ("path");
+  CREATE INDEX "payload_preferences_rels_users_id_idx" ON "payload"."payload_preferences_rels" USING btree ("users_id");
+  CREATE INDEX "payload_migrations_updated_at_idx" ON "payload"."payload_migrations" USING btree ("updated_at");
+  CREATE INDEX "payload_migrations_created_at_idx" ON "payload"."payload_migrations" USING btree ("created_at");
+  CREATE INDEX "informacion_general_sucursales_order_idx" ON "payload"."informacion_general_sucursales" USING btree ("_order");
+  CREATE INDEX "informacion_general_sucursales_parent_id_idx" ON "payload"."informacion_general_sucursales" USING btree ("_parent_id");
+  CREATE INDEX "informacion_general_logo_idx" ON "payload"."informacion_general" USING btree ("logo_id");
+params: .[39m
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: \n   CREATE TYPE \"payload\".\"enum_agentes_accesos_tablas\" AS ENUM('productos', 'clientes', 'ventas', 'inventario', 'informacion_general');\n  CREATE TYPE \"payload\".\"enum_agentes_modelo\" AS ENUM('gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo', 'claude-3-opus', 'claude-3-5-sonnet', 'gemini-1.5-pro', 'gemini-1.5-flash');\n  CREATE TABLE \"payload\".\"users_sessions\" (\n  \t\"_order\" integer NOT NULL,\n  \t\"_parent_id\" integer NOT NULL,\n  \t\"id\" varchar PRIMARY KEY NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone,\n  \t\"expires_at\" timestamp(3) with time zone NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"users\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"email\" varchar NOT NULL,\n  \t\"reset_password_token\" varchar,\n  \t\"reset_password_expiration\" timestamp(3) with time zone,\n  \t\"salt\" varchar,\n  \t\"hash\" varchar,\n  \t\"login_attempts\" numeric DEFAULT 0,\n  \t\"lock_until\" timestamp(3) with time zone\n  );\n  \n  CREATE TABLE \"payload\".\"media\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"alt\" varchar NOT NULL,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"url\" varchar,\n  \t\"thumbnail_u_r_l\" varchar,\n  \t\"filename\" varchar,\n  \t\"mime_type\" varchar,\n  \t\"filesize\" numeric,\n  \t\"width\" numeric,\n  \t\"height\" numeric,\n  \t\"focal_x\" numeric,\n  \t\"focal_y\" numeric\n  );\n  \n  CREATE TABLE \"payload\".\"agentes_accesos_tablas\" (\n  \t\"order\" integer NOT NULL,\n  \t\"parent_id\" integer NOT NULL,\n  \t\"value\" \"payload\".\"enum_agentes_accesos_tablas\",\n  \t\"id\" serial PRIMARY KEY NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"agentes\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"nombre\" varchar NOT NULL,\n  \t\"is_main\" boolean DEFAULT false,\n  \t\"rol\" varchar NOT NULL,\n  \t\"es_subagente\" boolean DEFAULT false,\n  \t\"agente_padre_id\" integer,\n  \t\"prompt_sistema\" varchar NOT NULL,\n  \t\"temperatura\" numeric DEFAULT 0.7,\n  \t\"personalidad\" varchar,\n  \t\"modelo\" \"payload\".\"enum_agentes_modelo\" DEFAULT 'gpt-4o' NOT NULL,\n  \t\"api_key\" varchar,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"conversaciones\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"id_consulta\" varchar NOT NULL,\n  \t\"id_cliente\" varchar NOT NULL,\n  \t\"resumen\" varchar,\n  \t\"documentos\" jsonb,\n  \t\"actividades\" jsonb,\n  \t\"notas\" varchar,\n  \t\"calendario\" timestamp(3) with time zone,\n  \t\"tipo_consulta\" varchar,\n  \t\"estado_consulta\" varchar,\n  \t\"producto_consultado\" varchar,\n  \t\"producto_ofrecido\" varchar,\n  \t\"temperatura\" varchar,\n  \t\"estado_embudo\" varchar,\n  \t\"metodo_pago\" varchar,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_kv\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"key\" varchar NOT NULL,\n  \t\"data\" jsonb NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_locked_documents\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"global_slug\" varchar,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_locked_documents_rels\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"order\" integer,\n  \t\"parent_id\" integer NOT NULL,\n  \t\"path\" varchar NOT NULL,\n  \t\"users_id\" integer,\n  \t\"media_id\" integer,\n  \t\"agentes_id\" integer,\n  \t\"conversaciones_id\" integer\n  );\n  \n  CREATE TABLE \"payload\".\"payload_preferences\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"key\" varchar,\n  \t\"value\" jsonb,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_preferences_rels\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"order\" integer,\n  \t\"parent_id\" integer NOT NULL,\n  \t\"path\" varchar NOT NULL,\n  \t\"users_id\" integer\n  );\n  \n  CREATE TABLE \"payload\".\"payload_migrations\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"name\" varchar,\n  \t\"batch\" numeric,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"informacion_general_sucursales\" (\n  \t\"_order\" integer NOT NULL,\n  \t\"_parent_id\" integer NOT NULL,\n  \t\"id\" varchar PRIMARY KEY NOT NULL,\n  \t\"nombre\" varchar NOT NULL,\n  \t\"direccion\" varchar NOT NULL,\n  \t\"horarios_atencion\" varchar,\n  \t\"telefono_sucursal\" varchar\n  );\n  \n  CREATE TABLE \"payload\".\"informacion_general\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"nombre_empresa\" varchar NOT NULL,\n  \t\"datos_contacto_email\" varchar,\n  \t\"datos_contacto_telefono\" varchar,\n  \t\"informacion_marca\" jsonb,\n  \t\"logo_id\" integer,\n  \t\"updated_at\" timestamp(3) with time zone,\n  \t\"created_at\" timestamp(3) with time zone\n  );\n  \n  ALTER TABLE \"payload\".\"users_sessions\" ADD CONSTRAINT \"users_sessions_parent_id_fk\" FOREIGN KEY (\"_parent_id\") REFERENCES \"payload\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"agentes_accesos_tablas\" ADD CONSTRAINT \"agentes_accesos_tablas_parent_fk\" FOREIGN KEY (\"parent_id\") REFERENCES \"payload\".\"agentes\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"agentes\" ADD CONSTRAINT \"agentes_agente_padre_id_agentes_id_fk\" FOREIGN KEY (\"agente_padre_id\") REFERENCES \"payload\".\"agentes\"(\"id\") ON DELETE set null ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_parent_fk\" FOREIGN KEY (\"parent_id\") REFERENCES \"payload\".\"payload_locked_documents\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_users_fk\" FOREIGN KEY (\"users_id\") REFERENCES \"payload\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_media_fk\" FOREIGN KEY (\"media_id\") REFERENCES \"payload\".\"media\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_agentes_fk\" FOREIGN KEY (\"agentes_id\") REFERENCES \"payload\".\"agentes\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_conversaciones_fk\" FOREIGN KEY (\"conversaciones_id\") REFERENCES \"payload\".\"conversaciones\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_preferences_rels\" ADD CONSTRAINT \"payload_preferences_rels_parent_fk\" FOREIGN KEY (\"parent_id\") REFERENCES \"payload\".\"payload_preferences\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_preferences_rels\" ADD CONSTRAINT \"payload_preferences_rels_users_fk\" FOREIGN KEY (\"users_id\") REFERENCES \"payload\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"informacion_general_sucursales\" ADD CONSTRAINT \"informacion_general_sucursales_parent_id_fk\" FOREIGN KEY (\"_parent_id\") REFERENCES \"payload\".\"informacion_general\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"informacion_general\" ADD CONSTRAINT \"informacion_general_logo_id_media_id_fk\" FOREIGN KEY (\"logo_id\") REFERENCES \"payload\".\"media\"(\"id\") ON DELETE set null ON UPDATE no action;\n  CREATE INDEX \"users_sessions_order_idx\" ON \"payload\".\"users_sessions\" USING btree (\"_order\");\n  CREATE INDEX \"users_sessions_parent_id_idx\" ON \"payload\".\"users_sessions\" USING btree (\"_parent_id\");\n  CREATE INDEX \"users_updated_at_idx\" ON \"payload\".\"users\" USING btree (\"updated_at\");\n  CREATE INDEX \"users_created_at_idx\" ON \"payload\".\"users\" USING btree (\"created_at\");\n  CREATE UNIQUE INDEX \"users_email_idx\" ON \"payload\".\"users\" USING btree (\"email\");\n  CREATE INDEX \"media_updated_at_idx\" ON \"payload\".\"media\" USING btree (\"updated_at\");\n  CREATE INDEX \"media_created_at_idx\" ON \"payload\".\"media\" USING btree (\"created_at\");\n  CREATE UNIQUE INDEX \"media_filename_idx\" ON \"payload\".\"media\" USING btree (\"filename\");\n  CREATE INDEX \"agentes_accesos_tablas_order_idx\" ON \"payload\".\"agentes_accesos_tablas\" USING btree (\"order\");\n  CREATE INDEX \"agentes_accesos_tablas_parent_idx\" ON \"payload\".\"agentes_accesos_tablas\" USING btree (\"parent_id\");\n  CREATE INDEX \"agentes_agente_padre_idx\" ON \"payload\".\"agentes\" USING btree (\"agente_padre_id\");\n  CREATE INDEX \"agentes_updated_at_idx\" ON \"payload\".\"agentes\" USING btree (\"updated_at\");\n  CREATE INDEX \"agentes_created_at_idx\" ON \"payload\".\"agentes\" USING btree (\"created_at\");\n  CREATE INDEX \"conversaciones_updated_at_idx\" ON \"payload\".\"conversaciones\" USING btree (\"updated_at\");\n  CREATE INDEX \"conversaciones_created_at_idx\" ON \"payload\".\"conversaciones\" USING btree (\"created_at\");\n  CREATE UNIQUE INDEX \"payload_kv_key_idx\" ON \"payload\".\"payload_kv\" USING btree (\"key\");\n  CREATE INDEX \"payload_locked_documents_global_slug_idx\" ON \"payload\".\"payload_locked_documents\" USING btree (\"global_slug\");\n  CREATE INDEX \"payload_locked_documents_updated_at_idx\" ON \"payload\".\"payload_locked_documents\" USING btree (\"updated_at\");\n  CREATE INDEX \"payload_locked_documents_created_at_idx\" ON \"payload\".\"payload_locked_documents\" USING btree (\"created_at\");\n  CREATE INDEX \"payload_locked_documents_rels_order_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"order\");\n  CREATE INDEX \"payload_locked_documents_rels_parent_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"parent_id\");\n  CREATE INDEX \"payload_locked_documents_rels_path_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"path\");\n  CREATE INDEX \"payload_locked_documents_rels_users_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"users_id\");\n  CREATE INDEX \"payload_locked_documents_rels_media_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"media_id\");\n  CREATE INDEX \"payload_locked_documents_rels_agentes_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"agentes_id\");\n  CREATE INDEX \"payload_locked_documents_rels_conversaciones_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"conversaciones_id\");\n  CREATE INDEX \"payload_preferences_key_idx\" ON \"payload\".\"payload_preferences\" USING btree (\"key\");\n  CREATE INDEX \"payload_preferences_updated_at_idx\" ON \"payload\".\"payload_preferences\" USING btree (\"updated_at\");\n  CREATE INDEX \"payload_preferences_created_at_idx\" ON \"payload\".\"payload_preferences\" USING btree (\"created_at\");\n  CREATE INDEX \"payload_preferences_rels_order_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"order\");\n  CREATE INDEX \"payload_preferences_rels_parent_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"parent_id\");\n  CREATE INDEX \"payload_preferences_rels_path_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"path\");\n  CREATE INDEX \"payload_preferences_rels_users_id_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"users_id\");\n  CREATE INDEX \"payload_migrations_updated_at_idx\" ON \"payload\".\"payload_migrations\" USING btree (\"updated_at\");\n  CREATE INDEX \"payload_migrations_created_at_idx\" ON \"payload\".\"payload_migrations\" USING btree (\"created_at\");\n  CREATE INDEX \"informacion_general_sucursales_order_idx\" ON \"payload\".\"informacion_general_sucursales\" USING btree (\"_order\");\n  CREATE INDEX \"informacion_general_sucursales_parent_id_idx\" ON \"payload\".\"informacion_general_sucursales\" USING btree (\"_parent_id\");\n  CREATE INDEX \"informacion_general_logo_idx\" ON \"payload\".\"informacion_general\" USING btree (\"logo_id\");\nparams: : type \"enum_agentes_accesos_tablas\" already exists",
+      "stack":
+          Error: Failed query: 
+             CREATE TYPE "payload"."enum_agentes_accesos_tablas" AS ENUM('productos', 'clientes', 'ventas', 'inventario', 'informacion_general');
+            CREATE TYPE "payload"."enum_agentes_modelo" AS ENUM('gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo', 'claude-3-opus', 'claude-3-5-sonnet', 'gemini-1.5-pro', 'gemini-1.5-flash');
+            CREATE TABLE "payload"."users_sessions" (
+            	"_order" integer NOT NULL,
+            	"_parent_id" integer NOT NULL,
+            	"id" varchar PRIMARY KEY NOT NULL,
+            	"created_at" timestamp(3) with time zone,
+            	"expires_at" timestamp(3) with time zone NOT NULL
+            );
+            
+            CREATE TABLE "payload"."users" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"email" varchar NOT NULL,
+            	"reset_password_token" varchar,
+            	"reset_password_expiration" timestamp(3) with time zone,
+            	"salt" varchar,
+            	"hash" varchar,
+            	"login_attempts" numeric DEFAULT 0,
+            	"lock_until" timestamp(3) with time zone
+            );
+            
+            CREATE TABLE "payload"."media" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"alt" varchar NOT NULL,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"url" varchar,
+            	"thumbnail_u_r_l" varchar,
+            	"filename" varchar,
+            	"mime_type" varchar,
+            	"filesize" numeric,
+            	"width" numeric,
+            	"height" numeric,
+            	"focal_x" numeric,
+            	"focal_y" numeric
+            );
+            
+            CREATE TABLE "payload"."agentes_accesos_tablas" (
+            	"order" integer NOT NULL,
+            	"parent_id" integer NOT NULL,
+            	"value" "payload"."enum_agentes_accesos_tablas",
+            	"id" serial PRIMARY KEY NOT NULL
+            );
+            
+            CREATE TABLE "payload"."agentes" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"nombre" varchar NOT NULL,
+            	"is_main" boolean DEFAULT false,
+            	"rol" varchar NOT NULL,
+            	"es_subagente" boolean DEFAULT false,
+            	"agente_padre_id" integer,
+            	"prompt_sistema" varchar NOT NULL,
+            	"temperatura" numeric DEFAULT 0.7,
+            	"personalidad" varchar,
+            	"modelo" "payload"."enum_agentes_modelo" DEFAULT 'gpt-4o' NOT NULL,
+            	"api_key" varchar,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+            );
+            
+            CREATE TABLE "payload"."conversaciones" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"id_consulta" varchar NOT NULL,
+            	"id_cliente" varchar NOT NULL,
+            	"resumen" varchar,
+            	"documentos" jsonb,
+            	"actividades" jsonb,
+            	"notas" varchar,
+            	"calendario" timestamp(3) with time zone,
+            	"tipo_consulta" varchar,
+            	"estado_consulta" varchar,
+            	"producto_consultado" varchar,
+            	"producto_ofrecido" varchar,
+            	"temperatura" varchar,
+            	"estado_embudo" varchar,
+            	"metodo_pago" varchar,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+            );
+            
+            CREATE TABLE "payload"."payload_kv" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"key" varchar NOT NULL,
+            	"data" jsonb NOT NULL
+            );
+            
+            CREATE TABLE "payload"."payload_locked_documents" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"global_slug" varchar,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+            );
+            
+            CREATE TABLE "payload"."payload_locked_documents_rels" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"order" integer,
+            	"parent_id" integer NOT NULL,
+            	"path" varchar NOT NULL,
+            	"users_id" integer,
+            	"media_id" integer,
+            	"agentes_id" integer,
+            	"conversaciones_id" integer
+            );
+            
+            CREATE TABLE "payload"."payload_preferences" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"key" varchar,
+            	"value" jsonb,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+            );
+            
+            CREATE TABLE "payload"."payload_preferences_rels" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"order" integer,
+            	"parent_id" integer NOT NULL,
+            	"path" varchar NOT NULL,
+            	"users_id" integer
+            );
+            
+            CREATE TABLE "payload"."payload_migrations" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"name" varchar,
+            	"batch" numeric,
+            	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+            	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+            );
+            
+            CREATE TABLE "payload"."informacion_general_sucursales" (
+            	"_order" integer NOT NULL,
+            	"_parent_id" integer NOT NULL,
+            	"id" varchar PRIMARY KEY NOT NULL,
+            	"nombre" varchar NOT NULL,
+            	"direccion" varchar NOT NULL,
+            	"horarios_atencion" varchar,
+            	"telefono_sucursal" varchar
+            );
+            
+            CREATE TABLE "payload"."informacion_general" (
+            	"id" serial PRIMARY KEY NOT NULL,
+            	"nombre_empresa" varchar NOT NULL,
+            	"datos_contacto_email" varchar,
+            	"datos_contacto_telefono" varchar,
+            	"informacion_marca" jsonb,
+            	"logo_id" integer,
+            	"updated_at" timestamp(3) with time zone,
+            	"created_at" timestamp(3) with time zone
+            );
+            
+            ALTER TABLE "payload"."users_sessions" ADD CONSTRAINT "users_sessions_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "payload"."users"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."agentes_accesos_tablas" ADD CONSTRAINT "agentes_accesos_tablas_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "payload"."agentes"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."agentes" ADD CONSTRAINT "agentes_agente_padre_id_agentes_id_fk" FOREIGN KEY ("agente_padre_id") REFERENCES "payload"."agentes"("id") ON DELETE set null ON UPDATE no action;
+            ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "payload"."payload_locked_documents"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "payload"."users"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_media_fk" FOREIGN KEY ("media_id") REFERENCES "payload"."media"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_agentes_fk" FOREIGN KEY ("agentes_id") REFERENCES "payload"."agentes"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_conversaciones_fk" FOREIGN KEY ("conversaciones_id") REFERENCES "payload"."conversaciones"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "payload"."payload_preferences"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "payload"."users"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."informacion_general_sucursales" ADD CONSTRAINT "informacion_general_sucursales_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "payload"."informacion_general"("id") ON DELETE cascade ON UPDATE no action;
+            ALTER TABLE "payload"."informacion_general" ADD CONSTRAINT "informacion_general_logo_id_media_id_fk" FOREIGN KEY ("logo_id") REFERENCES "payload"."media"("id") ON DELETE set null ON UPDATE no action;
+            CREATE INDEX "users_sessions_order_idx" ON "payload"."users_sessions" USING btree ("_order");
+            CREATE INDEX "users_sessions_parent_id_idx" ON "payload"."users_sessions" USING btree ("_parent_id");
+            CREATE INDEX "users_updated_at_idx" ON "payload"."users" USING btree ("updated_at");
+            CREATE INDEX "users_created_at_idx" ON "payload"."users" USING btree ("created_at");
+            CREATE UNIQUE INDEX "users_email_idx" ON "payload"."users" USING btree ("email");
+            CREATE INDEX "media_updated_at_idx" ON "payload"."media" USING btree ("updated_at");
+            CREATE INDEX "media_created_at_idx" ON "payload"."media" USING btree ("created_at");
+            CREATE UNIQUE INDEX "media_filename_idx" ON "payload"."media" USING btree ("filename");
+            CREATE INDEX "agentes_accesos_tablas_order_idx" ON "payload"."agentes_accesos_tablas" USING btree ("order");
+            CREATE INDEX "agentes_accesos_tablas_parent_idx" ON "payload"."agentes_accesos_tablas" USING btree ("parent_id");
+            CREATE INDEX "agentes_agente_padre_idx" ON "payload"."agentes" USING btree ("agente_padre_id");
+            CREATE INDEX "agentes_updated_at_idx" ON "payload"."agentes" USING btree ("updated_at");
+            CREATE INDEX "agentes_created_at_idx" ON "payload"."agentes" USING btree ("created_at");
+            CREATE INDEX "conversaciones_updated_at_idx" ON "payload"."conversaciones" USING btree ("updated_at");
+            CREATE INDEX "conversaciones_created_at_idx" ON "payload"."conversaciones" USING btree ("created_at");
+            CREATE UNIQUE INDEX "payload_kv_key_idx" ON "payload"."payload_kv" USING btree ("key");
+            CREATE INDEX "payload_locked_documents_global_slug_idx" ON "payload"."payload_locked_documents" USING btree ("global_slug");
+            CREATE INDEX "payload_locked_documents_updated_at_idx" ON "payload"."payload_locked_documents" USING btree ("updated_at");
+            CREATE INDEX "payload_locked_documents_created_at_idx" ON "payload"."payload_locked_documents" USING btree ("created_at");
+            CREATE INDEX "payload_locked_documents_rels_order_idx" ON "payload"."payload_locked_documents_rels" USING btree ("order");
+            CREATE INDEX "payload_locked_documents_rels_parent_idx" ON "payload"."payload_locked_documents_rels" USING btree ("parent_id");
+            CREATE INDEX "payload_locked_documents_rels_path_idx" ON "payload"."payload_locked_documents_rels" USING btree ("path");
+            CREATE INDEX "payload_locked_documents_rels_users_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("users_id");
+            CREATE INDEX "payload_locked_documents_rels_media_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("media_id");
+            CREATE INDEX "payload_locked_documents_rels_agentes_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("agentes_id");
+            CREATE INDEX "payload_locked_documents_rels_conversaciones_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("conversaciones_id");
+            CREATE INDEX "payload_preferences_key_idx" ON "payload"."payload_preferences" USING btree ("key");
+            CREATE INDEX "payload_preferences_updated_at_idx" ON "payload"."payload_preferences" USING btree ("updated_at");
+            CREATE INDEX "payload_preferences_created_at_idx" ON "payload"."payload_preferences" USING btree ("created_at");
+            CREATE INDEX "payload_preferences_rels_order_idx" ON "payload"."payload_preferences_rels" USING btree ("order");
+            CREATE INDEX "payload_preferences_rels_parent_idx" ON "payload"."payload_preferences_rels" USING btree ("parent_id");
+            CREATE INDEX "payload_preferences_rels_path_idx" ON "payload"."payload_preferences_rels" USING btree ("path");
+            CREATE INDEX "payload_preferences_rels_users_id_idx" ON "payload"."payload_preferences_rels" USING btree ("users_id");
+            CREATE INDEX "payload_migrations_updated_at_idx" ON "payload"."payload_migrations" USING btree ("updated_at");
+            CREATE INDEX "payload_migrations_created_at_idx" ON "payload"."payload_migrations" USING btree ("created_at");
+            CREATE INDEX "informacion_general_sucursales_order_idx" ON "payload"."informacion_general_sucursales" USING btree ("_order");
+            CREATE INDEX "informacion_general_sucursales_parent_id_idx" ON "payload"."informacion_general_sucursales" USING btree ("_parent_id");
+            CREATE INDEX "informacion_general_logo_idx" ON "payload"."informacion_general" USING btree ("logo_id");
+          params: 
+              at NodePgPreparedQuery.queryWithCache (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/src/pg-core/session.ts:73:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async Object.up (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/src/migrations/20260223_144702_init.ts:4:3)
+              at async runMigrationFile (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/@payloadcms/drizzle/src/migrate.ts:99:5)
+              at async Object.migrate (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/@payloadcms/drizzle/src/migrate.ts:86:5)
+              at async migrate (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/src/bin/migrate.ts:97:7)
+              at async runBinScript (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/dist/bin/index.js:110:9)
+              at async bin (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/dist/bin/index.js:44:29)
+              at async start (file:///home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/bin.js:30:7)
+          caused by: error: type "enum_agentes_accesos_tablas" already exists
+              at /home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/pg/lib/client.js:545:17
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async <anonymous> (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/src/node-postgres/session.ts:149:14)
+              at async NodePgPreparedQuery.queryWithCache (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/src/pg-core/session.ts:71:12)
+              at async Object.up (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/src/migrations/20260223_144702_init.ts:4:3)
+              at async runMigrationFile (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/@payloadcms/drizzle/src/migrate.ts:99:5)
+              at async Object.migrate (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/@payloadcms/drizzle/src/migrate.ts:86:5)
+              at async migrate (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/src/bin/migrate.ts:97:7)
+              at async runBinScript (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/dist/bin/index.js:110:9)
+              at async bin (/home/ubuntu/projects/lasmilnovedes/milnovedades-supbase-bot/payload-cms/node_modules/payload/dist/bin/index.js:44:29)
+      "query": "\n   CREATE TYPE \"payload\".\"enum_agentes_accesos_tablas\" AS ENUM('productos', 'clientes', 'ventas', 'inventario', 'informacion_general');\n  CREATE TYPE \"payload\".\"enum_agentes_modelo\" AS ENUM('gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo', 'claude-3-opus', 'claude-3-5-sonnet', 'gemini-1.5-pro', 'gemini-1.5-flash');\n  CREATE TABLE \"payload\".\"users_sessions\" (\n  \t\"_order\" integer NOT NULL,\n  \t\"_parent_id\" integer NOT NULL,\n  \t\"id\" varchar PRIMARY KEY NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone,\n  \t\"expires_at\" timestamp(3) with time zone NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"users\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"email\" varchar NOT NULL,\n  \t\"reset_password_token\" varchar,\n  \t\"reset_password_expiration\" timestamp(3) with time zone,\n  \t\"salt\" varchar,\n  \t\"hash\" varchar,\n  \t\"login_attempts\" numeric DEFAULT 0,\n  \t\"lock_until\" timestamp(3) with time zone\n  );\n  \n  CREATE TABLE \"payload\".\"media\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"alt\" varchar NOT NULL,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"url\" varchar,\n  \t\"thumbnail_u_r_l\" varchar,\n  \t\"filename\" varchar,\n  \t\"mime_type\" varchar,\n  \t\"filesize\" numeric,\n  \t\"width\" numeric,\n  \t\"height\" numeric,\n  \t\"focal_x\" numeric,\n  \t\"focal_y\" numeric\n  );\n  \n  CREATE TABLE \"payload\".\"agentes_accesos_tablas\" (\n  \t\"order\" integer NOT NULL,\n  \t\"parent_id\" integer NOT NULL,\n  \t\"value\" \"payload\".\"enum_agentes_accesos_tablas\",\n  \t\"id\" serial PRIMARY KEY NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"agentes\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"nombre\" varchar NOT NULL,\n  \t\"is_main\" boolean DEFAULT false,\n  \t\"rol\" varchar NOT NULL,\n  \t\"es_subagente\" boolean DEFAULT false,\n  \t\"agente_padre_id\" integer,\n  \t\"prompt_sistema\" varchar NOT NULL,\n  \t\"temperatura\" numeric DEFAULT 0.7,\n  \t\"personalidad\" varchar,\n  \t\"modelo\" \"payload\".\"enum_agentes_modelo\" DEFAULT 'gpt-4o' NOT NULL,\n  \t\"api_key\" varchar,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"conversaciones\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"id_consulta\" varchar NOT NULL,\n  \t\"id_cliente\" varchar NOT NULL,\n  \t\"resumen\" varchar,\n  \t\"documentos\" jsonb,\n  \t\"actividades\" jsonb,\n  \t\"notas\" varchar,\n  \t\"calendario\" timestamp(3) with time zone,\n  \t\"tipo_consulta\" varchar,\n  \t\"estado_consulta\" varchar,\n  \t\"producto_consultado\" varchar,\n  \t\"producto_ofrecido\" varchar,\n  \t\"temperatura\" varchar,\n  \t\"estado_embudo\" varchar,\n  \t\"metodo_pago\" varchar,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_kv\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"key\" varchar NOT NULL,\n  \t\"data\" jsonb NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_locked_documents\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"global_slug\" varchar,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_locked_documents_rels\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"order\" integer,\n  \t\"parent_id\" integer NOT NULL,\n  \t\"path\" varchar NOT NULL,\n  \t\"users_id\" integer,\n  \t\"media_id\" integer,\n  \t\"agentes_id\" integer,\n  \t\"conversaciones_id\" integer\n  );\n  \n  CREATE TABLE \"payload\".\"payload_preferences\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"key\" varchar,\n  \t\"value\" jsonb,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"payload_preferences_rels\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"order\" integer,\n  \t\"parent_id\" integer NOT NULL,\n  \t\"path\" varchar NOT NULL,\n  \t\"users_id\" integer\n  );\n  \n  CREATE TABLE \"payload\".\"payload_migrations\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"name\" varchar,\n  \t\"batch\" numeric,\n  \t\"updated_at\" timestamp(3) with time zone DEFAULT now() NOT NULL,\n  \t\"created_at\" timestamp(3) with time zone DEFAULT now() NOT NULL\n  );\n  \n  CREATE TABLE \"payload\".\"informacion_general_sucursales\" (\n  \t\"_order\" integer NOT NULL,\n  \t\"_parent_id\" integer NOT NULL,\n  \t\"id\" varchar PRIMARY KEY NOT NULL,\n  \t\"nombre\" varchar NOT NULL,\n  \t\"direccion\" varchar NOT NULL,\n  \t\"horarios_atencion\" varchar,\n  \t\"telefono_sucursal\" varchar\n  );\n  \n  CREATE TABLE \"payload\".\"informacion_general\" (\n  \t\"id\" serial PRIMARY KEY NOT NULL,\n  \t\"nombre_empresa\" varchar NOT NULL,\n  \t\"datos_contacto_email\" varchar,\n  \t\"datos_contacto_telefono\" varchar,\n  \t\"informacion_marca\" jsonb,\n  \t\"logo_id\" integer,\n  \t\"updated_at\" timestamp(3) with time zone,\n  \t\"created_at\" timestamp(3) with time zone\n  );\n  \n  ALTER TABLE \"payload\".\"users_sessions\" ADD CONSTRAINT \"users_sessions_parent_id_fk\" FOREIGN KEY (\"_parent_id\") REFERENCES \"payload\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"agentes_accesos_tablas\" ADD CONSTRAINT \"agentes_accesos_tablas_parent_fk\" FOREIGN KEY (\"parent_id\") REFERENCES \"payload\".\"agentes\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"agentes\" ADD CONSTRAINT \"agentes_agente_padre_id_agentes_id_fk\" FOREIGN KEY (\"agente_padre_id\") REFERENCES \"payload\".\"agentes\"(\"id\") ON DELETE set null ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_parent_fk\" FOREIGN KEY (\"parent_id\") REFERENCES \"payload\".\"payload_locked_documents\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_users_fk\" FOREIGN KEY (\"users_id\") REFERENCES \"payload\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_media_fk\" FOREIGN KEY (\"media_id\") REFERENCES \"payload\".\"media\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_agentes_fk\" FOREIGN KEY (\"agentes_id\") REFERENCES \"payload\".\"agentes\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_locked_documents_rels\" ADD CONSTRAINT \"payload_locked_documents_rels_conversaciones_fk\" FOREIGN KEY (\"conversaciones_id\") REFERENCES \"payload\".\"conversaciones\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_preferences_rels\" ADD CONSTRAINT \"payload_preferences_rels_parent_fk\" FOREIGN KEY (\"parent_id\") REFERENCES \"payload\".\"payload_preferences\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"payload_preferences_rels\" ADD CONSTRAINT \"payload_preferences_rels_users_fk\" FOREIGN KEY (\"users_id\") REFERENCES \"payload\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"informacion_general_sucursales\" ADD CONSTRAINT \"informacion_general_sucursales_parent_id_fk\" FOREIGN KEY (\"_parent_id\") REFERENCES \"payload\".\"informacion_general\"(\"id\") ON DELETE cascade ON UPDATE no action;\n  ALTER TABLE \"payload\".\"informacion_general\" ADD CONSTRAINT \"informacion_general_logo_id_media_id_fk\" FOREIGN KEY (\"logo_id\") REFERENCES \"payload\".\"media\"(\"id\") ON DELETE set null ON UPDATE no action;\n  CREATE INDEX \"users_sessions_order_idx\" ON \"payload\".\"users_sessions\" USING btree (\"_order\");\n  CREATE INDEX \"users_sessions_parent_id_idx\" ON \"payload\".\"users_sessions\" USING btree (\"_parent_id\");\n  CREATE INDEX \"users_updated_at_idx\" ON \"payload\".\"users\" USING btree (\"updated_at\");\n  CREATE INDEX \"users_created_at_idx\" ON \"payload\".\"users\" USING btree (\"created_at\");\n  CREATE UNIQUE INDEX \"users_email_idx\" ON \"payload\".\"users\" USING btree (\"email\");\n  CREATE INDEX \"media_updated_at_idx\" ON \"payload\".\"media\" USING btree (\"updated_at\");\n  CREATE INDEX \"media_created_at_idx\" ON \"payload\".\"media\" USING btree (\"created_at\");\n  CREATE UNIQUE INDEX \"media_filename_idx\" ON \"payload\".\"media\" USING btree (\"filename\");\n  CREATE INDEX \"agentes_accesos_tablas_order_idx\" ON \"payload\".\"agentes_accesos_tablas\" USING btree (\"order\");\n  CREATE INDEX \"agentes_accesos_tablas_parent_idx\" ON \"payload\".\"agentes_accesos_tablas\" USING btree (\"parent_id\");\n  CREATE INDEX \"agentes_agente_padre_idx\" ON \"payload\".\"agentes\" USING btree (\"agente_padre_id\");\n  CREATE INDEX \"agentes_updated_at_idx\" ON \"payload\".\"agentes\" USING btree (\"updated_at\");\n  CREATE INDEX \"agentes_created_at_idx\" ON \"payload\".\"agentes\" USING btree (\"created_at\");\n  CREATE INDEX \"conversaciones_updated_at_idx\" ON \"payload\".\"conversaciones\" USING btree (\"updated_at\");\n  CREATE INDEX \"conversaciones_created_at_idx\" ON \"payload\".\"conversaciones\" USING btree (\"created_at\");\n  CREATE UNIQUE INDEX \"payload_kv_key_idx\" ON \"payload\".\"payload_kv\" USING btree (\"key\");\n  CREATE INDEX \"payload_locked_documents_global_slug_idx\" ON \"payload\".\"payload_locked_documents\" USING btree (\"global_slug\");\n  CREATE INDEX \"payload_locked_documents_updated_at_idx\" ON \"payload\".\"payload_locked_documents\" USING btree (\"updated_at\");\n  CREATE INDEX \"payload_locked_documents_created_at_idx\" ON \"payload\".\"payload_locked_documents\" USING btree (\"created_at\");\n  CREATE INDEX \"payload_locked_documents_rels_order_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"order\");\n  CREATE INDEX \"payload_locked_documents_rels_parent_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"parent_id\");\n  CREATE INDEX \"payload_locked_documents_rels_path_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"path\");\n  CREATE INDEX \"payload_locked_documents_rels_users_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"users_id\");\n  CREATE INDEX \"payload_locked_documents_rels_media_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"media_id\");\n  CREATE INDEX \"payload_locked_documents_rels_agentes_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"agentes_id\");\n  CREATE INDEX \"payload_locked_documents_rels_conversaciones_id_idx\" ON \"payload\".\"payload_locked_documents_rels\" USING btree (\"conversaciones_id\");\n  CREATE INDEX \"payload_preferences_key_idx\" ON \"payload\".\"payload_preferences\" USING btree (\"key\");\n  CREATE INDEX \"payload_preferences_updated_at_idx\" ON \"payload\".\"payload_preferences\" USING btree (\"updated_at\");\n  CREATE INDEX \"payload_preferences_created_at_idx\" ON \"payload\".\"payload_preferences\" USING btree (\"created_at\");\n  CREATE INDEX \"payload_preferences_rels_order_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"order\");\n  CREATE INDEX \"payload_preferences_rels_parent_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"parent_id\");\n  CREATE INDEX \"payload_preferences_rels_path_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"path\");\n  CREATE INDEX \"payload_preferences_rels_users_id_idx\" ON \"payload\".\"payload_preferences_rels\" USING btree (\"users_id\");\n  CREATE INDEX \"payload_migrations_updated_at_idx\" ON \"payload\".\"payload_migrations\" USING btree (\"updated_at\");\n  CREATE INDEX \"payload_migrations_created_at_idx\" ON \"payload\".\"payload_migrations\" USING btree (\"created_at\");\n  CREATE INDEX \"informacion_general_sucursales_order_idx\" ON \"payload\".\"informacion_general_sucursales\" USING btree (\"_order\");\n  CREATE INDEX \"informacion_general_sucursales_parent_id_idx\" ON \"payload\".\"informacion_general_sucursales\" USING btree (\"_parent_id\");\n  CREATE INDEX \"informacion_general_logo_idx\" ON \"payload\".\"informacion_general\" USING btree (\"logo_id\");",
+      "params": []
+    }
