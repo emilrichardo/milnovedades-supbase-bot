@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Mil Novedades Supabase Bot - Synchronization and AI Agents",
   "scripts": {
-    "sync:products": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:clients": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:comprobantes": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "test:purchases": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/get-client-purchases?cliente_id=44409\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "test:chat": "bash -c 'source .env && curl -i -X POST \"http://localhost:8080/functions/v1/chat-agente\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -d \"{\\\"text\\\": \\\"Hola, Busco set de mate con termo y juego de la oca \\\"}\"'"
+    "sync:products": "bash -c 'source .env && curl -X POST \"https://lmn.server.neuraz.io/functions/v1/sync-aleph?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:clients": "bash -c 'source .env && curl -X POST \"https://lmn.server.neuraz.io/functions/v1/sync-aleph?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:comprobantes": "bash -c 'source .env && curl -X POST \"https://lmn.server.neuraz.io/functions/v1/sync-aleph?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "test:purchases": "bash -c 'source .env && curl -X POST \"https://lmn.server.neuraz.io/functions/v1/get-client-purchases?cliente_id=44409\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "test:chat": "bash -c 'source .env && curl -i -X POST \"https://lmn.server.neuraz.io/functions/v1/chat-agente\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -d \"{\\\"text\\\": \\\"Hola, Busco set de mate con termo y juego de la oca \\\"}\"'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

@@ -176,7 +176,8 @@ npm run test:purchases:prod
 
 > **⚠️ "Failed to retrieve edge functions"**
 
-When using the self-hosted version of Supabase Studio (the panel in your VPS at `163.176.54.116:8000`), when you click on the "Edge Functions" tab, you will **always** see the warning:
+When using the self-hosted version of Supabase Studio (the panel in your VPS at `https://lmn.server.neuraz.io`), when you click on the "Edge Functions" tab, you will **always** see the warning:
+
 `Failed to retrieve edge functions. Local functions can be found at supabase/functions folder.`
 
 **This is normal and expected.** The Supabase Studio UI tries to connect to the commercial Supabase Cloud API to list functions. Since you are running a private Self-Hosted cloud, that API does not exist. However, the functions **are running properly in the background** via Docker (Deno Edge Runtime). You must use the `npm run sync:prod:...` commands or HTTP requests to interact with them as the visual explorer is not supported in self-hosted setups without cloud accounts.
