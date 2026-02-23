@@ -1,19 +1,17 @@
 {
   "name": "botmilu",
   "version": "1.0.0",
+  "description": "Mil Novedades Supabase Bot - Synchronization and AI Agents",
   "scripts": {
-    "sync:local:products": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/sync-aleph?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:local:clients": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/sync-aleph?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:local:comprobantes": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/sync-aleph?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:prod:products": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:prod:clients": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "sync:prod:comprobantes": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "test:purchases:local": "bash -c 'source .env.local && curl -X POST \"http://127.0.0.1:54321/functions/v1/get-client-purchases?cliente_id=14\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
-    "test:purchases:prod": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/get-client-purchases?cliente_id=44409\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'"
+    "sync:products": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=products\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:clients": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=clients\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "sync:comprobantes": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/sync-aleph?type=comprobantes\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "test:purchases": "bash -c 'source .env && curl -X POST \"http://localhost:8080/functions/v1/get-client-purchases?cliente_id=44409\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -H \"Content-Type: application/json\"'",
+    "test:chat": "bash -c 'source .env && curl -i -X POST \"http://localhost:8080/functions/v1/chat-agente\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer ${SERVICE_ROLE_KEY}\" -d \"{\\\"text\\\": \\\"Hola, ¿cómo estás?\\\"}\"'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
-    "dotenv": "^17.3.1",
+    "dotenv": "^16.4.7",
     "pg": "^8.18.0"
   },
   "devDependencies": {

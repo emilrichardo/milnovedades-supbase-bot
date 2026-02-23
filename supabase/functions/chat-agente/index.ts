@@ -26,9 +26,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
       "";
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      db: { schema: 'payload' }
+    });
 
-    // 1. Get Agent Config
+    // 1. Get Agent Config (v2 - payload schema)
+    console.log("[Chat] Fetching agent config from payload schema...");
     let agente;
     if (agente_id) {
       const { data, error } = await supabase.from('agentes').select('*').eq('id', agente_id).maybeSingle();
