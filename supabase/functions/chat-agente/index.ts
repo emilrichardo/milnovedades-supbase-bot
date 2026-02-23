@@ -136,7 +136,8 @@ Deno.serve(async (req) => {
       const apiKey = agente.api_key || Deno.env.get("GEMINI_API_KEY");
       if (!apiKey) throw new Error("Missing GEMINI_API_KEY config");
 
-      const geminiModel = model === 'gemini-1.5-pro' ? 'gemini-1.5-pro-latest' : 'gemini-1.5-flash-latest';
+      const geminiModel = model === 'gemini-1.5-pro' ? 'gemini-1.5-pro' : 
+                        model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-1.5-flash';
       const contents = messages.filter(m => m.role !== 'system').map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }]
