@@ -15,14 +15,14 @@ const toolsProductosLectura = [
       parameters: {
         type: "object",
         properties: {
-          query: { 
-            type: "string", 
-            description: "Texto a buscar en código, nombre o rubro del producto" 
+          query: {
+            type: "string",
+            description: "Texto a buscar en código, nombre o rubro del producto"
           },
-          limite: { 
-            type: "number", 
-            description: "Cantidad máxima de resultados a devolver", 
-            default: 10 
+          limite: {
+            type: "number",
+            description: "Cantidad máxima de resultados a devolver",
+            default: 10
           }
         },
         required: ["query"]
@@ -37,9 +37,9 @@ const toolsProductosLectura = [
       parameters: {
         type: "object",
         properties: {
-          codigo: { 
-            type: "string", 
-            description: "Código del producto a buscar" 
+          codigo: {
+            type: "string",
+            description: "Código del producto a buscar"
           }
         },
         required: ["codigo"]
@@ -63,10 +63,10 @@ const toolsProductosLectura = [
 async function buscar_productos(query: string, limite: number = 10, supabasePublic: any) {
   const { data, error } = await supabasePublic
     .from('products_data')
-    .select('codigo_product, nombre, precio_minorista, precio_mayorista, precio_emprendedor, rubro, subrubro, stock_json')
+    .select('codigo_product, nombre, precio_minorista, precio_mayorista, precio_emprendedor, rubro, subrubro, stock_json, imagen, permalink')
     .or(`codigo_product.ilike.%${query}%,nombre.ilike.%${query}%,rubro.ilike.%${query}%`)
     .limit(limite);
-  
+
   if (error) throw new Error(`Error buscando productos: ${error.message}`);
   return data || [];
 }
@@ -77,7 +77,7 @@ async function obtener_producto(codigo: string, supabasePublic: any) {
     .select('*')
     .eq('codigo_product', codigo)
     .maybeSingle();
-  
+
   if (error) throw new Error(`Error obteniendo producto: ${error.message}`);
   return data;
 }
@@ -87,7 +87,7 @@ async function listar_categorias(supabasePublic: any) {
     .from('categories')
     .select('nombre, slug')
     .order('nombre');
-  
+
   if (error) throw new Error(`Error listando categorías: ${error.message}`);
   return data || [];
 }
@@ -109,14 +109,14 @@ async function ejecutarTool(toolName: string, args: any, supabasePublic: any) {
 // Generar tools según permisos del agente
 function generarTools(permisos: Record<string, string>) {
   const tools: any[] = [];
-  
+
   // Productos - Lectura
   if (permisos.productos && (permisos.productos.includes('lectura') || permisos.productos === 'lectura_escritura')) {
     tools.push(...toolsProductosLectura);
   }
-  
+
   // TODO: Agregar más tablas aquí (clientes, ventas, etc.)
-  
+
   return tools;
 }
 
@@ -198,10 +198,19 @@ Deno.serve(async (req) => {
     });
 
     // 3. Prepare Messages
+    const formattingInstruction = `
+INSTRUCCIONES DE FORMATO:
+- Cuando muestres productos, intenta siempre incluir su imagen y el enlace a la web.
+- Los datos están en los campos 'imagen' y 'permalink' de cada producto.
+- Formato para imagen: ![imagen]({url_imagen})
+- Formato para enlace: [Ver en la web]({permalink})
+- Si hay varios productos, preséntalos de forma organizada.
+`.trim();
+
     const messages: Array<{role: string, content: string}> = [
       {
         role: 'system',
-        content: `${agente.prompt_sistema || ''}\n\nPersonalidad: ${agente.personalidad || ''}`.trim()
+        content: `${agente.prompt_sistema || ''}\n\nPersonalidad: ${agente.personalidad || ''}\n\n${formattingInstruction}`.trim()
       }
     ];
 
@@ -275,11 +284,11 @@ Deno.serve(async (req) => {
           try {
             const toolName = toolCall.function.name;
             const toolArgs = JSON.parse(toolCall.function.arguments);
-            
+
             console.log(`[Chat] Executing tool: ${toolName} with args:`, toolArgs);
-            
+
             const toolResult = await ejecutarTool(toolName, toolArgs, supabasePublic);
-            
+
             // Agregar resultado como mensaje de tool
             currentMessages.push({
               role: 'tool',
@@ -317,7 +326,7 @@ Deno.serve(async (req) => {
       // Agregar información sobre tools disponibles al system message si existen
       let enhancedSystemMessage = systemMessage;
       if (availableTools.length > 0) {
-        const toolsInfo = availableTools.map(t => 
+        const toolsInfo = availableTools.map(t =>
           `- ${t.function.name}: ${t.function.description}`
         ).join('\n');
         enhancedSystemMessage += `\n\nHerramientas disponibles:\n${toolsInfo}\n\nNOTA: Para usar estas herramientas, menciona que necesitas buscar información específica y yo te ayudaré.`;
@@ -347,7 +356,7 @@ Deno.serve(async (req) => {
       const apiKey = agente.api_key || Deno.env.get("GEMINI_API_KEY");
       if (!apiKey) throw new Error("Missing GEMINI_API_KEY config");
 
-      const geminiModel = model === 'gemini-1.5-pro' ? 'gemini-1.5-pro' : 
+      const geminiModel = model === 'gemini-1.5-pro' ? 'gemini-1.5-pro' :
                         model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-1.5-flash';
       const contents = messages.filter(m => m.role !== 'system').map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
@@ -357,7 +366,7 @@ Deno.serve(async (req) => {
 
       // Agregar información sobre tools disponibles al system instruction si existen
       if (availableTools.length > 0 && systemInstruction) {
-        const toolsInfo = availableTools.map(t => 
+        const toolsInfo = availableTools.map(t =>
           `- ${t.function.name}: ${t.function.description}`
         ).join('\n');
         systemInstruction += `\n\nHerramientas disponibles:\n${toolsInfo}\n\nNOTA: Para usar estas herramientas, menciona que necesitas buscar información específica y yo te ayudaré.`;

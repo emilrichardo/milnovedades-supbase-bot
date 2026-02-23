@@ -7,8 +7,12 @@ const client = new Client({
 
 async function run() {
   await client.connect()
-  const res = await client.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'products_data' AND table_schema = 'public';")
-  console.log(JSON.stringify(res.rows, null, 2))
+  try {
+    const res = await client.query("SELECT * FROM products_data LIMIT 1;")
+    console.log("Success:", JSON.stringify(res.rows, null, 2))
+  } catch (e) {
+    console.error("Error:", e.message)
+  }
   await client.end()
 }
 

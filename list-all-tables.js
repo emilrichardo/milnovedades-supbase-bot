@@ -7,7 +7,7 @@ const client = new Client({
 
 async function run() {
   await client.connect()
-  const res = await client.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'products_data' AND table_schema = 'public';")
+  const res = await client.query("SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema');")
   console.log(JSON.stringify(res.rows, null, 2))
   await client.end()
 }
