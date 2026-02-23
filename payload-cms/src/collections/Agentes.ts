@@ -11,9 +11,15 @@ export const Agentes: CollectionConfig = {
   fields: [
     {
       name: 'nombre',
+      label: 'Nombre del Agente',
       type: 'text',
       required: true,
-      label: 'Nombre del Agente',
+    },
+    {
+      name: 'is_main',
+      label: 'Es Agente Principal (Orquestador)',
+      type: 'checkbox',
+      defaultValue: false,
     },
     {
       name: 'rol',
@@ -33,7 +39,7 @@ export const Agentes: CollectionConfig = {
       relationTo: 'agentes',
       label: 'Agente Padre (seleccionar si es sub-agente)',
       admin: {
-        condition: (data: any) => data.es_subagente,
+        condition: (data?: Partial<Record<string, unknown>>) => Boolean(data?.es_subagente),
       },
     },
     {
@@ -89,7 +95,8 @@ export const Agentes: CollectionConfig = {
       type: 'text',
       label: 'API Key (Opcional)',
       admin: {
-        description: 'Dejar en blanco para usar la API Key por defecto definida en variables de entorno.',
+        description:
+          'Dejar en blanco para usar la API Key por defecto definida en variables de entorno.',
       },
     },
   ],

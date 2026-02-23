@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     agentes: Agente;
+    conversaciones: Conversacione;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -80,6 +81,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     agentes: AgentesSelect<false> | AgentesSelect<true>;
+    conversaciones: ConversacionesSelect<false> | ConversacionesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -171,6 +173,7 @@ export interface Media {
 export interface Agente {
   id: number;
   nombre: string;
+  is_main?: boolean | null;
   rol: string;
   es_subagente?: boolean | null;
   agente_padre?: (number | null) | Agente;
@@ -190,6 +193,45 @@ export interface Agente {
    * Dejar en blanco para usar la API Key por defecto definida en variables de entorno.
    */
   api_key?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversaciones".
+ */
+export interface Conversacione {
+  id: number;
+  id_consulta: string;
+  id_cliente: string;
+  resumen?: string | null;
+  documentos?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  actividades?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  notas?: string | null;
+  calendario?: string | null;
+  tipo_consulta?: string | null;
+  estado_consulta?: string | null;
+  producto_consultado?: string | null;
+  producto_ofrecido?: string | null;
+  temperatura?: string | null;
+  estado_embudo?: string | null;
+  metodo_pago?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -228,6 +270,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'agentes';
         value: number | Agente;
+      } | null)
+    | ({
+        relationTo: 'conversaciones';
+        value: number | Conversacione;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -317,6 +363,7 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface AgentesSelect<T extends boolean = true> {
   nombre?: T;
+  is_main?: T;
   rol?: T;
   es_subagente?: T;
   agente_padre?: T;
@@ -326,6 +373,28 @@ export interface AgentesSelect<T extends boolean = true> {
   accesos_tablas?: T;
   modelo?: T;
   api_key?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversaciones_select".
+ */
+export interface ConversacionesSelect<T extends boolean = true> {
+  id_consulta?: T;
+  id_cliente?: T;
+  resumen?: T;
+  documentos?: T;
+  actividades?: T;
+  notas?: T;
+  calendario?: T;
+  tipo_consulta?: T;
+  estado_consulta?: T;
+  producto_consultado?: T;
+  producto_ofrecido?: T;
+  temperatura?: T;
+  estado_embudo?: T;
+  metodo_pago?: T;
   updatedAt?: T;
   createdAt?: T;
 }
