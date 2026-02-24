@@ -180,7 +180,13 @@ export interface Agente {
   prompt_sistema: string;
   temperatura?: number | null;
   personalidad?: string | null;
-  accesos_tablas?: ('productos' | 'clientes' | 'ventas' | 'inventario' | 'informacion_general')[] | null;
+  accesos_tablas?:
+    | {
+        tabla: 'productos' | 'clientes' | 'ventas' | 'inventario' | 'informacion_general';
+        permiso: 'lectura' | 'escritura' | 'lectura_escritura';
+        id?: string | null;
+      }[]
+    | null;
   modelo:
     | 'gpt-4o'
     | 'gpt-4o-mini'
@@ -370,7 +376,13 @@ export interface AgentesSelect<T extends boolean = true> {
   prompt_sistema?: T;
   temperatura?: T;
   personalidad?: T;
-  accesos_tablas?: T;
+  accesos_tablas?:
+    | T
+    | {
+        tabla?: T;
+        permiso?: T;
+        id?: T;
+      };
   modelo?: T;
   api_key?: T;
   updatedAt?: T;

@@ -259,6 +259,10 @@ services:
     build:
       context: ./payload-cms
       dockerfile: Dockerfile
+      args:
+        PAYLOAD_PUBLIC_SERVER_URL: ${PAYLOAD_PUBLIC_SERVER_URL}
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -267,6 +271,8 @@ services:
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:-your-payload-secret}
       NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+      PAYLOAD_PUBLIC_SERVER_URL: ${PAYLOAD_PUBLIC_SERVER_URL}
+      SERVER_URL: ${SERVER_URL}
     depends_on:
       db:
         condition: service_healthy

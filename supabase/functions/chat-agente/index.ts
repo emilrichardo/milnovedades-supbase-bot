@@ -135,6 +135,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 0. Verify Bot API Key
+    const authHeader = req.headers.get("Authorization");
+    const CHAT_API_KEY = Deno.env.get("CHAT_API_KEY");
+
+    if (CHAT_API_KEY && authHeader !== `Bearer ${CHAT_API_KEY}`) {
+      console.warn("[Chat] Unauthorized access attempt");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
     const SUPABASE_SERVICE_ROLE_KEY =
       Deno.env.get("SERVICE_ROLE_KEY") ??
@@ -169,12 +181,14 @@ Deno.serve(async (req) => {
       throw new Error("No agent configuration could be loaded");
     }
 
+    console.log(`[Chat] Using agent: ${agente.nombre} (Model: ${agente.modelo})`);
+
     // 2. Get Agent Permissions
     console.log("[Chat] Fetching agent permissions...");
     const { data: accesosData, error: accesosError } = await supabase
       .from('agentes_accesos_tablas')
-      .select('value, permiso')
-      .eq('parent_id', agente.id);
+      .select('tabla, permiso')
+      .eq('_parent_id', agente.id);
 
     if (accesosError) {
       console.warn("Error fetching permissions:", accesosError.message);
@@ -183,7 +197,7 @@ Deno.serve(async (req) => {
     // Mapear permisos a estructura usable
     const permisos: Record<string, string> = {};
     accesosData?.forEach(acc => {
-      permisos[acc.value] = acc.permiso;
+      permisos[acc.tabla] = acc.permiso;
     });
 
     console.log("[Chat] Agent permissions:", permisos);
