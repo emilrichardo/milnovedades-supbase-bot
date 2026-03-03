@@ -59,18 +59,21 @@ Deno.serve({
       );
     }
 
+    // Sync functions need much higher CPU and wall-clock limits
+    const isSyncFunction = functionName === "sync-aleph";
+
     try {
       const worker = await EdgeRuntime.userWorkers.create({
         servicePath,
-        memoryLimitMb: 256,
-        workerTimeoutMs: 120000,
+        memoryLimitMb: isSyncFunction ? 512 : 256,
+        workerTimeoutMs: isSyncFunction ? 400000 : 120000,
         noModuleCache: false,
         noNpm: false,
         envVars: Object.entries(Deno.env.toObject()),
         forceCreate: false,
         customModuleRoot: "",
-        cpuTimeSoftLimitMs: 1000,
-        cpuTimeHardLimitMs: 2000,
+        cpuTimeSoftLimitMs: isSyncFunction ? 60000 : 10000,
+        cpuTimeHardLimitMs: isSyncFunction ? 120000 : 20000,
         decoratorType: "tc39",
         maybeEntrypoint,
         context: { useReadSyncFileAPI: true },

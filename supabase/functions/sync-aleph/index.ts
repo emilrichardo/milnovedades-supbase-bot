@@ -268,6 +268,7 @@ async function syncVouchers(
   supabase: any,
   fromDateStr?: string,
   toDateStr?: string,
+  maxDays = 7,
 ) {
   console.log("[Sync] Syncing Vouchers...");
 
@@ -296,11 +297,23 @@ async function syncVouchers(
     fromDate = formatDateDDMMYYYY(lastDate);
   }
   if (!toDate) {
-    toDate = formatDateDDMMYYYY(new Date());
+    // Cap the window to maxDays to avoid proxy timeouts on large backlogs
+    const from = fromDate.split("-").length === 3 && fromDate.split("-")[0].length === 2
+      ? (() => {
+          const parts = fromDate!.split(/[-/]/);
+          return new Date(+parts[2], +parts[1] - 1, +parts[0]);
+        })()
+      : new Date(fromDate!);
+
+    const cappedTo = new Date(from);
+    cappedTo.setDate(cappedTo.getDate() + maxDays);
+
+    const today = new Date();
+    toDate = formatDateDDMMYYYY(cappedTo < today ? cappedTo : today);
   }
 
   const url = `${ALEPH_API_URL}/Pedidos/GetComprobantes?fechadesde=${fromDate}&fechahasta=${toDate}&t=${Date.now()}`;
-  console.log(`[Sync] Fetching vouchers from ${fromDate} to ${toDate}...`);
+  console.log(`[Sync] Fetching vouchers from ${fromDate} to ${toDate} (window capped at ${maxDays} days)...`);
 
   const res = await fetchWithTimeout(url, {
     headers: { ...ALEPH_HEADERS, "Cache-Control": "no-cache" },
