@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Bash(tail:*)",
+      "Bash(source .env:*)",
+      "Bash(supabase:*)",
+      "Bash(ls:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker ps:*)",
+      "Bash(python3:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker run:*)"
+    ]
+  }
+}
