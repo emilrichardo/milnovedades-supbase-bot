@@ -9,6 +9,7 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Agentes } from './collections/Agentes'
 import { Conversaciones } from './collections/Conversaciones'
+import { Eventos } from './collections/Eventos'
 import { InformacionGeneral } from './globals/InformacionGeneral'
 
 const filename = fileURLToPath(import.meta.url)
@@ -21,7 +22,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Agentes, Conversaciones],
+  collections: [Users, Media, Agentes, Conversaciones, Eventos],
   globals: [InformacionGeneral],
   editor: lexicalEditor(),
   cors: [process.env.PAYLOAD_PUBLIC_SERVER_URL || ''].filter(Boolean),

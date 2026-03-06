@@ -8,6 +8,17 @@ export const Users: CollectionConfig = {
   auth: true,
   fields: [
     // Email added by default
-    // Add more fields as needed
+    {
+      name: 'rol',
+      label: 'Rol del Usuario',
+      type: 'select',
+      required: true,
+      defaultValue: 'vendedor',
+      options: [
+        { label: 'Admin', value: 'Admin' },
+        { label: 'Encargado', value: 'Encargado' },
+        { label: 'Vendedor', value: 'Vendedor' },
+      ],
+    },
   ],
 }

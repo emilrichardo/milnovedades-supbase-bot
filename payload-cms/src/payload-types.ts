@@ -71,6 +71,7 @@ export interface Config {
     media: Media;
     agentes: Agente;
     conversaciones: Conversacione;
+    eventos: Evento;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +83,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     agentes: AgentesSelect<false> | AgentesSelect<true>;
     conversaciones: ConversacionesSelect<false> | ConversacionesSelect<true>;
+    eventos: EventosSelect<false> | EventosSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -128,6 +130,7 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  rol: 'Admin' | 'Encargado' | 'Vendedor';
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -242,6 +245,87 @@ export interface Conversacione {
   createdAt: string;
 }
 /**
+ * Gestión de eventos de tipo sorteo o puntos / chances.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "eventos".
+ */
+export interface Evento {
+  id: number;
+  nombre: string;
+  /**
+   * Identificador URL-friendly. Ej: "sorteo-dia-de-la-madre-2026"
+   */
+  slug: string;
+  descripcion?: string | null;
+  banner?: (number | null) | Media;
+  fecha_inicio: string;
+  /**
+   * Dejar vacío si el evento no tiene fecha de fin definida.
+   */
+  fecha_fin?: string | null;
+  /**
+   * Marca si el evento está activo o inactivo.
+   */
+  activo?: boolean | null;
+  tipo_evento: 'sorteo' | 'puntos';
+  /**
+   * Configura cómo se otorgan puntos o chances por cada compra.
+   */
+  reglas_puntuacion: {
+    /**
+     * Define el monto base y la cantidad de puntos o chances que genera.
+     */
+    multiplicador: {
+      /**
+       * Monto en RD$ que se necesita para generar los puntos/chances indicados. Ej: cada RD$500 genera X puntos.
+       */
+      monto_base: number;
+      /**
+       * Cantidad de puntos o chances que se otorgan por cada "monto base" alcanzado.
+       */
+      puntos_generados: number;
+    };
+    /**
+     * Categorías de productos que aplican para esta regla. Dejar vacío si aplica a todas.
+     */
+    categorias_aplicables?:
+      | {
+          categoria: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Monto mínimo que debe tener una compra para participar en el evento.
+     */
+    monto_minimo?: number | null;
+    /**
+     * Máximo de puntos o chances que puede obtener un cliente por una sola compra. Dejar vacío para sin límite.
+     */
+    tope_por_compra?: number | null;
+  };
+  /**
+   * Términos y condiciones legales del evento.
+   */
+  terminos_condiciones?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -280,6 +364,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'conversaciones';
         value: number | Conversacione;
+      } | null)
+    | ({
+        relationTo: 'eventos';
+        value: number | Evento;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -328,6 +416,7 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  rol?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -407,6 +496,41 @@ export interface ConversacionesSelect<T extends boolean = true> {
   temperatura?: T;
   estado_embudo?: T;
   metodo_pago?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "eventos_select".
+ */
+export interface EventosSelect<T extends boolean = true> {
+  nombre?: T;
+  slug?: T;
+  descripcion?: T;
+  banner?: T;
+  fecha_inicio?: T;
+  fecha_fin?: T;
+  activo?: T;
+  tipo_evento?: T;
+  reglas_puntuacion?:
+    | T
+    | {
+        multiplicador?:
+          | T
+          | {
+              monto_base?: T;
+              puntos_generados?: T;
+            };
+        categorias_aplicables?:
+          | T
+          | {
+              categoria?: T;
+              id?: T;
+            };
+        monto_minimo?: T;
+        tope_por_compra?: T;
+      };
+  terminos_condiciones?: T;
   updatedAt?: T;
   createdAt?: T;
 }
