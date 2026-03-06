@@ -1,4 +1,4 @@
-# BotMilu- - Sync Architecture
+# BotMilu- - Sync Architecture ---
 
 This project implements a product synchronization system using **Supabase Native** technologies. It syncs products from the Aleph API and WooCommerce to a Supabase database.
 
@@ -12,7 +12,7 @@ This project implements a product synchronization system using **Supabase Native
     - Reserved for specific custom collections and internal business management tooling.
 3.  **Edge Function** (`sync-aleph`): A Deno/TypeScript function that performs the heavy lifting:
     - Fetches all products from Aleph.
-    - Fetches real-time stock and WooCommerce images (concurrently). 
+    - Fetches real-time stock and WooCommerce images (concurrently).
     - Upserts data to the database.
     - Cleans up stale records (products no longer in the feed).
 4.  **Scheduler**: `pg_cron` extension in the database triggers the Edge Function every hour via HTTP POST.
