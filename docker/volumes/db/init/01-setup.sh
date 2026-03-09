@@ -2,23 +2,23 @@
 set -e
 
 # Crear base de datos payload_db si no existe
-DB_EXISTS=$(psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='payload_db'")
+DB_EXISTS=$(psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='payload_db'")
 if [ "$DB_EXISTS" != "1" ]; then
-    psql -U postgres -c "CREATE DATABASE payload_db;"
+    psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE payload_db;"
     echo "Base de datos payload_db creada."
 else
     echo "Base de datos payload_db ya existe."
 fi
 
-# Ajustar rol supabase_auth_admin
-psql -U postgres -c "
-DO \$\$
-BEGIN
-   IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
-      ALTER ROLE supabase_auth_admin WITH SUPERUSER LOGIN PASSWORD 'f879e13b86027c9a6294d1f5e82b7c4193d56d782e1c94a5e0b2c3d4f5a6b7c8';
-   ELSE
-      CREATE ROLE supabase_auth_admin WITH SUPERUSER LOGIN PASSWORD 'f879e13b86027c9a6294d1f5e82b7c4193d56d782e1c94a5e0b2c3d4f5a6b7c8';
-   END IF;
-END \$\$;
-"
-echo "Rol supabase_auth_admin ajustado con exitosamente."
+# Ajustar roles para usar la clave del entorno
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" -d postgres <<-EOSQL
+    ALTER ROLE postgres WITH LOGIN PASSWORD '$POSTGRES_PASSWORD';
+    ALTER ROLE authenticator WITH LOGIN PASSWORD '$POSTGRES_PASSWORD';
+    ALTER ROLE supabase_admin WITH SUPERUSER LOGIN PASSWORD '$POSTGRES_PASSWORD';
+    ALTER ROLE supabase_auth_admin WITH SUPERUSER LOGIN PASSWORD '$POSTGRES_PASSWORD';
+    ALTER ROLE supabase_auth_admin SET search_path = "auth", "public";
+    ALTER ROLE supabase_storage_admin WITH SUPERUSER LOGIN PASSWORD '$POSTGRES_PASSWORD';
+    ALTER ROLE supabase_storage_admin SET search_path = "storage", "public";
+    ALTER ROLE supabase_replication_admin WITH SUPERUSER LOGIN PASSWORD '$POSTGRES_PASSWORD';
+EOSQL
+echo "Roles ajustados exitosamente con la contraseña del entorno."

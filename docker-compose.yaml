@@ -49,6 +49,8 @@ services:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+    volumes:
+      - ./supabase:/home/node/app/supabase
     networks:
       - supabasenet
 
@@ -212,7 +214,6 @@ services:
     environment:
       POSTGRES_DB: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      # For initial setup of Supabase schema
     volumes:
       - ./docker/volumes/db/data:/var/lib/postgresql/data
       # Initialize Supabase roles/schema
