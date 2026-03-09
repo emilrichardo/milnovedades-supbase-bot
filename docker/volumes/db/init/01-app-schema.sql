@@ -52,7 +52,7 @@ CREATE INDEX IF NOT EXISTS clientes_codigo_cliente_idx ON public.clientes USING 
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.comprobantes (
     id bigserial NOT NULL,
-    cliente_id bigint REFERENCES public.clientes(codigo_cliente),
+    cliente_id bigint,
     comprobante_tipo_id int,
     numero text,
     fecha date,
@@ -178,7 +178,9 @@ BEGIN
     END IF;
 
     -- Remove existing job to avoid duplicates
-    PERFORM cron.unschedule(job_name);
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = job_name) THEN
+        PERFORM cron.unschedule(job_name);
+    END IF;
 
     IF NEW.is_active THEN
         full_url := api_url_base || NEW.collection;

@@ -268,16 +268,13 @@ async function syncVouchers(
   supabase: any,
   fromDateStr?: string,
   toDateStr?: string,
-  maxDays = 7,
 ) {
   console.log("[Sync] Syncing Vouchers...");
 
-  // Default dates if not provided
   let fromDate = fromDateStr;
   let toDate = toDateStr;
 
   if (!fromDate) {
-    // Check last voucher date
     const { data: lastVoucher } = await supabase
       .from("comprobantes")
       .select("fecha")
@@ -285,35 +282,33 @@ async function syncVouchers(
       .limit(1)
       .single();
 
-    const lastDate = lastVoucher?.fecha
-      ? new Date(lastVoucher.fecha)
-      : new Date(2025, 0, 1); // Default to Jan 1, 2025 to catch older data if DB is empty
+    const today = new Date();
 
     if (lastVoucher?.fecha) {
-      // Enforce fetching starting a few days before the last voucher to catch late inserts
+      // Incremental: start 5 days before last voucher to catch late inserts, cap at 14 days
+      const lastDate = new Date(lastVoucher.fecha);
       lastDate.setDate(lastDate.getDate() - 5);
+      fromDate = formatDateDDMMYYYY(lastDate);
+
+      const cappedTo = new Date(lastDate);
+      cappedTo.setDate(cappedTo.getDate() + 14);
+      toDate = formatDateDDMMYYYY(cappedTo < today ? cappedTo : today);
+    } else {
+      // Initial backfill: last 90 days, window of 30 days to catch up fast
+      const initialFrom = new Date(today);
+      initialFrom.setDate(initialFrom.getDate() - 90);
+      fromDate = formatDateDDMMYYYY(initialFrom);
+
+      const initialTo = new Date(initialFrom);
+      initialTo.setDate(initialTo.getDate() + 30);
+      toDate = formatDateDDMMYYYY(initialTo < today ? initialTo : today);
     }
-
-    fromDate = formatDateDDMMYYYY(lastDate);
-  }
-  if (!toDate) {
-    // Cap the window to maxDays to avoid proxy timeouts on large backlogs
-    const from = fromDate.split("-").length === 3 && fromDate.split("-")[0].length === 2
-      ? (() => {
-          const parts = fromDate!.split(/[-/]/);
-          return new Date(+parts[2], +parts[1] - 1, +parts[0]);
-        })()
-      : new Date(fromDate!);
-
-    const cappedTo = new Date(from);
-    cappedTo.setDate(cappedTo.getDate() + maxDays);
-
-    const today = new Date();
-    toDate = formatDateDDMMYYYY(cappedTo < today ? cappedTo : today);
+  } else if (!toDate) {
+    toDate = formatDateDDMMYYYY(new Date());
   }
 
   const url = `${ALEPH_API_URL}/Pedidos/GetComprobantes?fechadesde=${fromDate}&fechahasta=${toDate}&t=${Date.now()}`;
-  console.log(`[Sync] Fetching vouchers from ${fromDate} to ${toDate} (window capped at ${maxDays} days)...`);
+  console.log(`[Sync] Fetching vouchers from ${fromDate} to ${toDate}...`);
 
   const res = await fetchWithTimeout(url, {
     headers: { ...ALEPH_HEADERS, "Cache-Control": "no-cache" },
