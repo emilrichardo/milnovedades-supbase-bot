@@ -36,7 +36,7 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL || '',
     },
     schemaName: 'payload',
-    push: true,
+    push: process.env.NODE_ENV !== 'production',
   }),
   sharp,
   plugins: [],

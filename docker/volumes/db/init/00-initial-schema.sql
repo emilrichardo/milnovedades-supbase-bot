@@ -1,52 +1,41 @@
--- Create roles
-create role postgres superuser login password 'postgres';
-create role anon noinherit;
-create role service_role noinherit;
-create role authenticated noinherit;
-create role authenticator noinherit login password 'postgres';
-create role supabase_auth_admin noinherit login password 'postgres';
-create role supabase_storage_admin noinherit login password 'postgres';
-create role supabase_replication_admin noinherit login password 'postgres';
+-- =============================================================================
+-- Initial Schema Setup
+-- NOTE: The supabase/postgres image already creates standard roles (postgres,
+-- anon, authenticated, service_role, authenticator, supabase_auth_admin,
+-- supabase_storage_admin, supabase_replication_admin, supabase_admin) and
+-- standard schemas (public, auth, storage, _realtime, realtime, extensions).
+-- This script only adds what the image does NOT handle by default.
+-- =============================================================================
 
--- Grant privileges
-grant anon to authenticator;
-grant authenticated to authenticator;
-grant service_role to authenticator;
-grant supabase_admin to authenticator;
+-- Create additional schemas
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE SCHEMA IF NOT EXISTS payload;
 
--- Create Schemas
-create schema if not exists public;
-create schema if not exists auth;
-create schema if not exists storage;
-create schema if not exists _realtime;
-create schema if not exists realtime;
-create schema if not exists extensions;
+-- Enable extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgjwt" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
+CREATE EXTENSION IF NOT EXISTS "pg_net";
 
--- Extensions
-create extension if not exists "uuid-ossp" with schema extensions;
-create extension if not exists "pgcrypto" with schema extensions;
-create extension if not exists "pgjwt" with schema extensions;
-create extension if not exists "pg_cron";
-create extension if not exists "pg_net";
+-- Public schema permissions
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
 
--- Grant usage on schemas
-grant usage on schema public to postgres, anon, authenticated, service_role;
-grant usage on schema extensions to postgres, anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role;
-alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;
+-- Database-level privileges
+GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_admin;
+GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_auth_admin;
+GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_storage_admin;
 
--- Grant database-level privileges
-grant all privileges on database postgres to supabase_admin;
-grant all privileges on database postgres to supabase_auth_admin;
-grant all privileges on database postgres to supabase_storage_admin;
-
--- Grant schema ownership
-alter schema auth owner to supabase_auth_admin;
-alter schema storage owner to supabase_storage_admin;
-alter schema _realtime owner to supabase_admin;
-alter schema realtime owner to supabase_admin;
+-- Payload schema permissions (supabase_admin is used by payload-cms)
+GRANT ALL ON SCHEMA payload TO supabase_admin;
+GRANT USAGE ON SCHEMA payload TO postgres, authenticated, service_role, anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA payload GRANT ALL ON TABLES TO supabase_admin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA payload GRANT ALL ON SEQUENCES TO supabase_admin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA payload GRANT SELECT ON TABLES TO authenticated, anon;
 
 -- PG Cron grants
-grant usage on schema cron to postgres;
-grant all privileges on all tables in schema cron to postgres;
+GRANT USAGE ON SCHEMA cron TO postgres;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cron TO postgres;

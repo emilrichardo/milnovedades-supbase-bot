@@ -13,7 +13,7 @@ export const Users: CollectionConfig = {
       label: 'Rol del Usuario',
       type: 'select',
       required: true,
-      defaultValue: 'vendedor',
+      defaultValue: 'Vendedor',
       options: [
         { label: 'Admin', value: 'Admin' },
         { label: 'Encargado', value: 'Encargado' },

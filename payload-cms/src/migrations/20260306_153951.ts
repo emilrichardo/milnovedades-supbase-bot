@@ -37,7 +37,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   DROP INDEX "payload"."agentes_accesos_tablas_parent_idx";
   DROP INDEX "payload"."agentes_accesos_tablas_order_idx";
   ALTER TABLE "payload"."agentes_accesos_tablas" ALTER COLUMN "id" SET DATA TYPE varchar;
-  ALTER TABLE "payload"."users" ADD COLUMN "rol" "payload"."enum_users_rol" DEFAULT 'vendedor' NOT NULL;
+  ALTER TABLE "payload"."users" ADD COLUMN "rol" "payload"."enum_users_rol" DEFAULT 'Vendedor' NOT NULL;
   ALTER TABLE "payload"."agentes_accesos_tablas" ADD COLUMN "_order" integer NOT NULL;
   ALTER TABLE "payload"."agentes_accesos_tablas" ADD COLUMN "_parent_id" integer NOT NULL;
   ALTER TABLE "payload"."agentes_accesos_tablas" ADD COLUMN "tabla" "payload"."enum_agentes_accesos_tablas_tabla" NOT NULL;
