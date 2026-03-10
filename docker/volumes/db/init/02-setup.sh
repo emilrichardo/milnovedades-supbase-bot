@@ -14,7 +14,8 @@ DECLARE
     'supabase_admin',
     'supabase_auth_admin',
     'supabase_storage_admin',
-    'supabase_replication_admin'
+    'supabase_replication_admin',
+    'dashboard_user'
   ];
 BEGIN
   FOREACH r IN ARRAY roles LOOP
