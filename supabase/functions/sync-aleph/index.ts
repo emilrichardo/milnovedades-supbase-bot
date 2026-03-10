@@ -294,14 +294,11 @@ async function syncVouchers(
       cappedTo.setDate(cappedTo.getDate() + 14);
       toDate = formatDateDDMMYYYY(cappedTo < today ? cappedTo : today);
     } else {
-      // Initial backfill: last 90 days, window of 30 days to catch up fast
+      // Initial backfill: last 30 days up to today
       const initialFrom = new Date(today);
-      initialFrom.setDate(initialFrom.getDate() - 90);
+      initialFrom.setDate(initialFrom.getDate() - 30);
       fromDate = formatDateDDMMYYYY(initialFrom);
-
-      const initialTo = new Date(initialFrom);
-      initialTo.setDate(initialTo.getDate() + 30);
-      toDate = formatDateDDMMYYYY(initialTo < today ? initialTo : today);
+      toDate = formatDateDDMMYYYY(today);
     }
   } else if (!toDate) {
     toDate = formatDateDDMMYYYY(new Date());
