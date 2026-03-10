@@ -10,6 +10,7 @@ import { Media } from './collections/Media'
 import { Agentes } from './collections/Agentes'
 import { Conversaciones } from './collections/Conversaciones'
 import { Eventos } from './collections/Eventos'
+import { Asociados } from './collections/Asociados'
 import { InformacionGeneral } from './globals/InformacionGeneral'
 
 const filename = fileURLToPath(import.meta.url)
@@ -22,7 +23,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Agentes, Conversaciones, Eventos],
+  collections: [Users, Media, Agentes, Conversaciones, Eventos, Asociados],
   globals: [InformacionGeneral],
   editor: lexicalEditor(),
   cors: [process.env.PAYLOAD_PUBLIC_SERVER_URL || ''].filter(Boolean),
@@ -36,7 +37,7 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL || '',
     },
     schemaName: 'payload',
-    push: process.env.NODE_ENV !== 'production',
+    push: true,
   }),
   sharp,
   plugins: [],
