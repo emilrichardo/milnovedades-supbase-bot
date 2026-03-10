@@ -13,7 +13,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE TABLE "payload"."asociados" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"dni" varchar NOT NULL,
-  	"celular" varchar NOT NULL,
+  	"celular" varchar,
   	"codigo_cliente" numeric,
   	"nombre" varchar,
   	"razon_social" varchar,
@@ -55,6 +55,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "asociados_updated_at_idx" ON "payload"."asociados" USING btree ("updated_at");
   CREATE INDEX "asociados_created_at_idx" ON "payload"."asociados" USING btree ("created_at");
   CREATE UNIQUE INDEX "asociados_email_idx" ON "payload"."asociados" USING btree ("email");
+  CREATE UNIQUE INDEX "asociados_dni_idx" ON "payload"."asociados" USING btree ("dni");
   ALTER TABLE "payload"."payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_asociados_fk" FOREIGN KEY ("asociados_id") REFERENCES "payload"."asociados"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload"."payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_asociados_fk" FOREIGN KEY ("asociados_id") REFERENCES "payload"."asociados"("id") ON DELETE cascade ON UPDATE no action;
   CREATE INDEX "payload_locked_documents_rels_asociados_id_idx" ON "payload"."payload_locked_documents_rels" USING btree ("asociados_id");

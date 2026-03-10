@@ -1,9 +1,10 @@
 import type { CollectionConfig } from 'payload'
+import { APIError } from 'payload'
 
 export const Asociados: CollectionConfig = {
   slug: 'asociados',
   admin: {
-    useAsTitle: 'email',
+    useAsTitle: 'dni',
   },
   auth: true,
   access: {
@@ -21,6 +22,52 @@ export const Asociados: CollectionConfig = {
     delete: ({ req: { user } }) => user?.collection === 'users',
   },
   endpoints: [
+    {
+      path: '/login-dni',
+      method: 'post',
+      handler: async (req) => {
+        try {
+          const body = await req.json?.() ?? {}
+          const { dni, password } = body as { dni?: string; password?: string }
+
+          if (!dni || !password) {
+            return Response.json({ errors: [{ message: 'Se requiere dni y password' }] }, { status: 400 })
+          }
+
+          // Look up the auto-generated email for this DNI
+          const result = await (req.payload as any).find({
+            collection: 'asociados',
+            where: { dni: { equals: dni } },
+            limit: 1,
+            overrideAccess: true,
+          })
+
+          if (result.docs.length === 0) {
+            return Response.json({ errors: [{ message: 'DNI no encontrado' }] }, { status: 401 })
+          }
+
+          const asociado = result.docs[0] as any
+          const email = asociado.email
+
+          // Use Payload's built-in login
+          const loginResult = await (req.payload as any).login({
+            collection: 'asociados',
+            data: { email, password },
+            req,
+          })
+
+          return Response.json({
+            message: 'Authentication Passed',
+            token: loginResult.token,
+            exp: loginResult.exp,
+            user: loginResult.user,
+          })
+        } catch (err: any) {
+          req.payload.logger.error({ err }, 'Error en login-dni')
+          return Response.json({ errors: [{ message: 'Credenciales inválidas' }] }, { status: 401 })
+        }
+      },
+    },
     {
       path: '/buscar-cliente',
       method: 'get',
@@ -80,6 +127,24 @@ export const Asociados: CollectionConfig = {
       async ({ data, operation, req }) => {
         if (!data) return data
         if (operation !== 'create' && operation !== 'update') return data
+
+        // Auto-generate email from DNI if not provided
+        if (operation === 'create' && !(data as any).email && (data as any).dni) {
+          ;(data as any).email = `${(data as any).dni}@asociados.internal`
+        }
+
+        // Reject duplicate DNI on create
+        if (operation === 'create' && (data as any).dni) {
+          const existing = await (req.payload as any).find({
+            collection: 'asociados',
+            where: { dni: { equals: (data as any).dni } },
+            limit: 1,
+            overrideAccess: true,
+          })
+          if (existing.totalDocs > 0) {
+            throw new APIError('Ya existe una cuenta registrada con ese DNI.', 400, undefined, true)
+          }
+        }
 
         const { dni, celular } = data as any
 
@@ -163,7 +228,6 @@ export const Asociados: CollectionConfig = {
       name: 'celular',
       label: 'Celular',
       type: 'text',
-      required: true,
     },
 
     // Vinculación ERP
